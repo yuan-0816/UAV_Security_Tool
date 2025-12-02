@@ -92,6 +92,29 @@ class HackRFReplayAttacker:
                 print(f"[!] 清理過程中發生錯誤: {e}")
                 pass
 
+    def record_capture(self):
+        """執行 RX 捕捉"""
+        try:
+            print("\n--- 開始 RX 捕捉 ---")
+            self._run_command("rx")
+            print("[V] RX 捕捉完成。")
+        except KeyboardInterrupt:
+            print("\n[!] 捕捉被使用者中斷。退出程式。")
+        finally:
+            self.cleanup_hackrf()
+
+
+    def run_replay(self):
+        """執行單次 TX 重放"""
+        try:
+            print("\n--- 開始 TX 重放 ---")
+            self._run_command("tx")
+            print("[V] TX 重放完成。")
+        except KeyboardInterrupt:
+            print("\n[!] 重放被使用者中斷。退出程式。")
+        finally:
+            self.cleanup_hackrf()
+
 
     def run_attack_cycle(self):
         """執行 RX-TX 主迴圈"""
@@ -145,7 +168,8 @@ if __name__ == "__main__":
         "tx_gain": 47,              # 發射 VGA 增益 (請根據 PA 安全調整!)
         "duration": 30,              # 每次捕捉時長 (秒)
         "tx_count": 5,              # 每次捕捉後重放次數
-        "filename": "hackrf_capture.bin"
+        "filename": "fake_arm.bin"
+        # "filename": "hackrf_capture.bin"
     }
 
     # *** 注意：TX_GAIN 調整區 ***
@@ -156,4 +180,6 @@ if __name__ == "__main__":
     # ---------------------------
     
     attacker = HackRFReplayAttacker(**ATTACK_PARAMS)
+    # attacker.record_capture()
+    # attacker.run_replay()
     attacker.run_attack_cycle()
