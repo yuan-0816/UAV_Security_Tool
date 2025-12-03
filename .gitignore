@@ -216,5 +216,8 @@ __marimo__/
 *.kml
 *.kmz
 
+# environment variables file
+*.env
+
 
 
