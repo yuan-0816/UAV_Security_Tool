@@ -19,28 +19,28 @@
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout">
        <item>
-        <widget class="QLabel" name="label">
+        <widget class="QLabel" name="label_ReportNum">
          <property name="text">
           <string>報告編號</string>
          </property>
         </widget>
        </item>
        <item>
-        <widget class="QLineEdit" name="lineEdit"/>
+        <widget class="QLineEdit" name="lineEdit_ReportId"/>
        </item>
       </layout>
      </item>
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout_4">
        <item>
-        <widget class="QLabel" name="label_4">
+        <widget class="QLabel" name="label_Tester">
          <property name="text">
           <string>檢測人員</string>
          </property>
         </widget>
        </item>
        <item>
-        <widget class="QLineEdit" name="lineEdit_2"/>
+        <widget class="QLineEdit" name="lineEdit_Tester"/>
        </item>
       </layout>
      </item>
@@ -52,25 +52,21 @@
       </widget>
      </item>
      <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_2">
+      <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="1,2">
        <item>
-        <widget class="QLabel" name="label_2">
+        <widget class="QLabel" name="label_StartDate">
          <property name="text">
           <string>檢測起始日期</string>
          </property>
         </widget>
        </item>
        <item>
-        <widget class="QDateTimeEdit" name="dateTimeEdit">
-         <property name="date">
-          <date>
-           <year>2011</year>
-           <month>1</month>
-           <day>13</day>
-          </date>
+        <widget class="QDateEdit" name="dateEdit_StartDate">
+         <property name="inputMethodHints">
+          <set>Qt::InputMethodHint::ImhPreferNumbers</set>
          </property>
          <property name="displayFormat">
-          <string>MM/dd/yyyy hh:mm Ap</string>
+          <string>yyyy/MM/dd</string>
          </property>
          <property name="calendarPopup">
           <bool>true</bool>
@@ -89,7 +85,7 @@
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout_3">
        <item>
-        <widget class="QLabel" name="label_3">
+        <widget class="QLabel" name="label_TestItem">
          <property name="text">
           <string>檢測項目</string>
          </property>
@@ -98,28 +94,28 @@
        <item>
         <layout class="QVBoxLayout" name="verticalLayout">
          <item>
-          <widget class="QCheckBox" name="checkBox">
+          <widget class="QCheckBox" name="checkBox_6">
            <property name="text">
             <string>6. 系統檢測</string>
            </property>
           </widget>
          </item>
          <item>
-          <widget class="QCheckBox" name="checkBox_2">
+          <widget class="QCheckBox" name="checkBox_7">
            <property name="text">
             <string>7. 群飛系統安全檢測</string>
            </property>
           </widget>
          </item>
          <item>
-          <widget class="QCheckBox" name="checkBox_3">
+          <widget class="QCheckBox" name="checkBox_81">
            <property name="text">
             <string>8.1. 一般要求增項檢測</string>
            </property>
           </widget>
          </item>
          <item>
-          <widget class="QCheckBox" name="checkBox_4">
+          <widget class="QCheckBox" name="checkBox_82">
            <property name="text">
             <string>8.2. 特殊要求增項檢測</string>
            </property>
@@ -144,13 +140,12 @@
   </layout>
  </widget>
  <tabstops>
-  <tabstop>lineEdit</tabstop>
-  <tabstop>lineEdit_2</tabstop>
-  <tabstop>dateTimeEdit</tabstop>
-  <tabstop>checkBox</tabstop>
-  <tabstop>checkBox_2</tabstop>
-  <tabstop>checkBox_3</tabstop>
-  <tabstop>checkBox_4</tabstop>
+  <tabstop>lineEdit_ReportId</tabstop>
+  <tabstop>lineEdit_Tester</tabstop>
+  <tabstop>checkBox_6</tabstop>
+  <tabstop>checkBox_7</tabstop>
+  <tabstop>checkBox_81</tabstop>
+  <tabstop>checkBox_82</tabstop>
  </tabstops>
  <resources/>
  <connections>
