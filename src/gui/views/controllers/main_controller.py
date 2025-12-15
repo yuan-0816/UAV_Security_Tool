@@ -9,7 +9,10 @@ from PySide6.QtGui import QAction
 
 
 # 匯入子頁面的 Controller
-from gui.views.controllers.page_621 import Page621Controller
+from gui.views.controllers.new_project_ctrl import NewProjectController
+
+from gui.views.controllers.widget_621_ctrl import Page621Controller
+
 
 from gui.core.project_manager import ProjectManager
 
@@ -53,7 +56,7 @@ class MainController(QObject):
         # ---------------------------------- 連接主選單按鈕 --------------------------------- #
         # tab overview
         if self.action_create:
-            self.action_create.triggered.connect(self.open_new_project)
+            self.action_create.triggered.connect(self.create_new_project)
 
 
 
@@ -61,7 +64,7 @@ class MainController(QObject):
         if self.btn_621:
             self.btn_621.clicked.connect(self.switch_to_621)
     
-    def open_new_project(self):
+    def create_new_project(self):
         """按下 [新建專案] 後的邏輯"""
         # 1. 實例化對話框控制器
         dialog_controller = NewProjectController()
@@ -72,6 +75,9 @@ class MainController(QObject):
         # 3. 判斷結果
         if data:
             print(f"使用者輸入資料: {data}")
+
+            from gui.core.project_manager import ProjectManager
+            self.project_manager = ProjectManager()
             
             # 4. 呼叫 Model 存檔
             if self.project_manager.save_project(data):
@@ -81,6 +87,11 @@ class MainController(QObject):
                 self.update_main_ui(data)
             else:
                 QMessageBox.warning(self.window, "錯誤", "存檔失敗！")
+
+
+
+
+
 
     def load_ui(self, filename):
         """通用的 UI 載入器"""

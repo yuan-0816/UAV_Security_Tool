@@ -3,7 +3,7 @@
 '''
 import os
 
-from PySide6.QtWidgets import QDialog, QLineEdit, QDateEdit,  QDialogButtonBox, QCheckBox
+from PySide6.QtWidgets import QDialog, QLineEdit, QDateEdit,  QDialogButtonBox, QCheckBox, QToolButton
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, QDate
 
@@ -20,7 +20,7 @@ class NewProjectController:
         self.dialog = self.loader.load(ui_file)
         ui_file.close()
 
-        
+        self.input_project_name = self.dialog.findChild(QLineEdit, "lineEdit_ProjectName") # 專案名稱
         self.input_id = self.dialog.findChild(QLineEdit, "lineEdit_ReportId") # 報告編號
         self.input_tester = self.dialog.findChild(QLineEdit, "lineEdit_Tester") # 檢測人員
         self.input_date = self.dialog.findChild(QDateEdit,  "dateEdit_StartDate")   # 日期
@@ -33,14 +33,30 @@ class NewProjectController:
         self.chk_82 = self.dialog.findChild(QCheckBox, "checkBox_82")
 
 
+        self.input_SavePath = self.dialog.findChild(QLineEdit, "lineEdit_SavePath")
+        self.toolButton_SavePath = self.dialog.findChild(QToolButton, "toolButton_SavePath")
+
         self.button_box = self.dialog.findChild(QDialogButtonBox, "buttonBox") # 下方的 OK/Cancel
 
         # 3. 連接信號
         # QDialogButtonBox 自動處理 accept/reject
+
+        self.toolButton_SavePath.clicked.connect(self.browse_save_path)
         self.button_box.accepted.connect(self.dialog.accept)
         self.button_box.rejected.connect(self.dialog.reject)
 
-        print(f"Debug: input_date found? {self.input_date is not None}")
+
+    def browse_save_path(self):
+        """瀏覽資料夾，選擇專案儲存路徑"""
+        from PySide6.QtWidgets import QFileDialog
+
+        folder = QFileDialog.getExistingDirectory(
+            self.dialog,
+            "選擇專案儲存資料夾",
+            os.path.expanduser("~")  # 預設路徑為使用者主目錄
+        )
+        if folder and self.input_SavePath:
+            self.input_SavePath.setText(folder)
 
     def run(self):
         """顯示對話框 (Modal)，並回傳結果"""
@@ -61,6 +77,7 @@ class NewProjectController:
             
             # 收集資料
             data = {
+                "project_name": self.input_project_name.text() if self.input_project_name else "",
                 "report_id": self.input_id.text() if self.input_id else "",
                 "tester": self.input_tester.text() if self.input_tester else "",
                 "date": date_str,
@@ -70,6 +87,7 @@ class NewProjectController:
                 "enable_7": self.chk_7.isChecked() if self.chk_7 else False,
                 "enable_81": self.chk_81.isChecked() if self.chk_81 else False,
                 "enable_82": self.chk_82.isChecked() if self.chk_82 else False,
+                "save_path": self.input_SavePath.text() if self.input_SavePath else "",
             }
             return data
     
