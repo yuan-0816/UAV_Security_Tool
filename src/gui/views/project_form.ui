@@ -24,7 +24,14 @@
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="lineEdit_ProjectName"/>
+      <widget class="QLineEdit" name="lineEdit_ProjectName">
+       <property name="required" stdset="0">
+        <bool>true</bool>
+       </property>
+       <property name="json_key" stdset="0">
+        <string>project_name</string>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>
@@ -38,7 +45,14 @@
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="lineEdit_ReportId"/>
+      <widget class="QLineEdit" name="lineEdit_ReportId">
+       <property name="required" stdset="0">
+        <bool>true</bool>
+       </property>
+       <property name="json_key" stdset="0">
+        <string>report_id</string>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>
@@ -52,7 +66,14 @@
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="lineEdit_Tester"/>
+      <widget class="QLineEdit" name="lineEdit_Tester">
+       <property name="required" stdset="0">
+        <bool>true</bool>
+       </property>
+       <property name="json_key" stdset="0">
+        <string>tester</string>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>
@@ -83,6 +104,9 @@
        <property name="calendarPopup">
         <bool>true</bool>
        </property>
+       <property name="json_key" stdset="0">
+        <string>start_date</string>
+       </property>
       </widget>
      </item>
     </layout>
@@ -110,12 +134,18 @@
          <property name="text">
           <string>6. 系統檢測</string>
          </property>
+         <property name="json_key" stdset="0">
+          <string>test_6</string>
+         </property>
         </widget>
        </item>
        <item>
         <widget class="QCheckBox" name="checkBox_7">
          <property name="text">
           <string>7. 群飛系統安全檢測</string>
+         </property>
+         <property name="json_key" stdset="0">
+          <string>test_7</string>
          </property>
         </widget>
        </item>
@@ -124,12 +154,18 @@
          <property name="text">
           <string>8.1. 一般要求增項檢測</string>
          </property>
+         <property name="json_key" stdset="0">
+          <string>test_81</string>
+         </property>
         </widget>
        </item>
        <item>
         <widget class="QCheckBox" name="checkBox_82">
          <property name="text">
           <string>8.2. 特殊要求增項檢測</string>
+         </property>
+         <property name="json_key" stdset="0">
+          <string>test_82</string>
          </property>
         </widget>
        </item>
@@ -154,7 +190,14 @@
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="lineEdit_SavePath"/>
+      <widget class="QLineEdit" name="lineEdit_SavePath">
+       <property name="required" stdset="0">
+        <bool>true</bool>
+       </property>
+       <property name="json_key" stdset="0">
+        <string>save_path</string>
+       </property>
+      </widget>
      </item>
      <item>
       <widget class="QToolButton" name="toolButton_SavePath">
@@ -203,22 +246,6 @@
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
-     <y>274</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>accepted()</signal>
-   <receiver>NewProjectDialog</receiver>
-   <slot>accept()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>238</x>
-     <y>584</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>157</x>
      <y>274</y>
     </hint>
    </hints>
