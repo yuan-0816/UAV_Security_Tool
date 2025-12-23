@@ -58,16 +58,15 @@ sudo apt install -y \
     gr-osmosdr \
     hackrf \
 ```
+
+```
+sudo apt install fcitx-frontend-qt6
+sudo apt install libxcb-cursor0
+```
+
+
 ### python dependencies
 ```
 pip install --upgrade pip
-
-# 數值與繪圖
-pip install numpy scipy matplotlib
-
-# MAVLink 解析
-pip install pymavlink
-
-# 如果想用 Python 操作 HackRF（非必需，但有用）
-pip install hackrf
 ```
+

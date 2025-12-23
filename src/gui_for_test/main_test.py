@@ -11,13 +11,12 @@ from functools import partial
 from io import BytesIO
 from typing import Dict, List, Optional, Tuple, Any
 
-# 引入 Flask 與 Werkzeug server (關鍵修改)
+# 引入 Flask 與 Werkzeug server
 from flask import Flask, request, jsonify, render_template_string
 from werkzeug.serving import make_server
 
 # 引入 QR Code 與圖片處理
 import qrcode
-# 注意: PIL 在較新版本中建議使用 Pillow
 from PIL import ImageQt
 
 # 引入 PySide6
@@ -30,6 +29,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QDate, QObject, Signal, Slot, QUrl
 from PySide6.QtGui import QPixmap, QShortcut, QKeySequence, QImage, QDesktopServices
+
+
 
 # ==============================================================================
 # SECTION 1: CONFIGURATION & CONSTANTS
@@ -263,8 +264,9 @@ MOBILE_HTML_TEMPLATE = """
 
     let cropper = null;
     let fabricCanvas = null;
+    let originalImageWidth = 0; // 用來儲存裁切後的高清寬度
 
-    // --- 監聽樣式改變 (即時更新選取物件) ---
+    // --- 監聽樣式改變 ---
     widthInput.addEventListener('input', function() {
         widthVal.innerText = this.value;
         updateActiveObject();
@@ -329,9 +331,10 @@ MOBILE_HTML_TEMPLATE = """
         if (!cropper) return;
         statusEl.innerText = "處理中...";
         
+        // [關鍵] 高畫質裁切
         const croppedCanvas = cropper.getCroppedCanvas({
-            maxWidth: 1600,
-            maxHeight: 1600,
+            maxWidth: 4096, 
+            maxHeight: 4096,
             imageSmoothingQuality: 'high',
         });
 
@@ -339,7 +342,10 @@ MOBILE_HTML_TEMPLATE = """
             alert("裁切失敗"); return;
         }
 
-        const croppedImageURL = croppedCanvas.toDataURL('image/jpeg', 0.9);
+        // 記錄原始高畫質寬度
+        originalImageWidth = croppedCanvas.width;
+
+        const croppedImageURL = croppedCanvas.toDataURL('image/jpeg', 0.95);
         startDrawMode(croppedImageURL, croppedCanvas.width, croppedCanvas.height);
     }
 
@@ -371,16 +377,15 @@ MOBILE_HTML_TEMPLATE = """
             img.set({
                 originX: 'left',
                 originY: 'top',
-                scaleX: scaleFactor,
+                scaleX: scaleFactor, 
                 scaleY: scaleFactor,
-                selectable: false // 背景不可選
+                selectable: false
             });
             fabricCanvas.setBackgroundImage(img, fabricCanvas.renderAll.bind(fabricCanvas));
             
             addRect(); // 預設加一個框
         });
 
-        // 當使用者點選某個框時，更新控制面板數值
         fabricCanvas.on('selection:created', syncControls);
         fabricCanvas.on('selection:updated', syncControls);
     }
@@ -403,11 +408,13 @@ MOBILE_HTML_TEMPLATE = """
             width: fabricCanvas.width / 3,
             height: fabricCanvas.height / 3,
             fill: 'transparent',
-            stroke: colorInput.value, // 使用當前選擇的顏色
-            strokeWidth: parseInt(widthInput.value, 10), // 使用當前粗細
+            stroke: colorInput.value,
+            strokeWidth: parseInt(widthInput.value, 10),
             cornerColor: 'blue',
             cornerSize: 20,
-            transparentCorners: false
+            transparentCorners: false,
+            // [關鍵修正]：strokeUniform: true 讓邊框在縮放時維持固定粗細，不會變形
+            strokeUniform: true 
         });
         
         fabricCanvas.add(rect);
@@ -437,14 +444,23 @@ MOBILE_HTML_TEMPLATE = """
         }
     }
 
-    // --- 上傳 ---
+    // --- 上傳 (還原高畫質) ---
     function uploadResult() {
         if (!fabricCanvas) return;
         
         fabricCanvas.discardActiveObject(); 
         fabricCanvas.renderAll();
 
-        const dataURL = fabricCanvas.toDataURL({ format: 'jpeg', quality: 0.9 });
+        // [關鍵] 計算還原倍率
+        const multiplier = originalImageWidth / fabricCanvas.getWidth();
+
+        // 輸出時乘上倍率，還原成高畫質
+        const dataURL = fabricCanvas.toDataURL({ 
+            format: 'jpeg', 
+            quality: 1.0,  
+            multiplier: multiplier 
+        });
+        
         statusEl.innerText = "上傳中...";
         document.getElementById('btn-upload').disabled = true;
 
@@ -1209,6 +1225,7 @@ class ProjectFormController:
             elif f_type == 'date': 
                 widget = QDateEdit()
                 widget.setCalendarPopup(True)
+                widget.setDisplayFormat(DATE_FMT_QT)
                 if self.is_edit_mode and key in self.existing_data:
                     widget.setDate(QDate.fromString(self.existing_data[key], DATE_FMT_QT))
                 else:
@@ -1349,18 +1366,26 @@ class OverviewPage(QWidget):
             
             front_container = QWidget()
             front_v = QVBoxLayout(front_container)
+            # [修改 1] 移除這行，不要讓整個佈局強制置中，否則按鈕無法拉伸
+            # front_v.setAlignment(Qt.AlignCenter) 
             
             lbl_img = QLabel("正面照片 (Front)\n未上傳")
-            lbl_img.setFrameShape(QFrame.Box)
+            lbl_img.setFrameShape(QFrame.NoFrame)
             lbl_img.setFixedSize(320, 240)
             lbl_img.setAlignment(Qt.AlignCenter)
-            lbl_img.setScaledContents(True)
+            # lbl_img.setScaledContents(True)
             
             # [修改] 這裡改為開啟六格視窗
             btn_view = QPushButton("檢視六視角照片")
             btn_view.clicked.connect(partial(self.open_gallery, t))
             
-            front_v.addWidget(lbl_img)
+            # [修改 2] 設定按鈕水平方向盡量延伸
+            btn_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+            # [修改 3] 加入圖片時指定置中 (Qt.AlignCenter)
+            front_v.addWidget(lbl_img, 0, Qt.AlignCenter)
+            
+            # [修改 4] 加入按鈕時不要指定 Alignment，讓它自動填滿寬度
             front_v.addWidget(btn_view)
             
             self.photo_grid.addWidget(front_container, 2, col, 1, 1)
@@ -1440,7 +1465,17 @@ class OverviewPage(QWidget):
             if "front" in key:
                 # widget 是正面大圖的 QLabel
                 if has_file:
-                    widget.setPixmap(QPixmap(full_path))
+                    pix = QPixmap(full_path)
+                    if not pix.isNull():
+                        # 縮放到 widget 的大小 (320x240)
+                        # Qt.KeepAspectRatio: 保持長寬比 (不會變形)
+                        # Qt.SmoothTransformation: 平滑縮放 (畫質較好)
+                        scaled_pix = pix.scaled(
+                            widget.size(), 
+                            Qt.KeepAspectRatio, 
+                            Qt.SmoothTransformation
+                        )
+                        widget.setPixmap(scaled_pix)
                 else:
                     widget.setText("正面照片 (Front)\n未上傳")
             else:
@@ -1774,6 +1809,9 @@ class MainApp(QMainWindow):
         
         self._set_enabled(False)
         self._init_zoom()
+        
+        # [Fix] 初始化時就更新字型，確保中文字能顯示
+        self.update_font()
 
     def closeEvent(self, event):
         self.pm.stop_server()
@@ -1798,7 +1836,9 @@ class MainApp(QMainWindow):
             self.update_font()
 
     def update_font(self):
-        QApplication.instance().setStyleSheet(f"QWidget {{ font-size: {self.current_font_size}pt; }}")
+        # [Fix] 強制指定微軟正黑體，解決 Windows 下中文顯示為方塊或無法輸入的問題
+        font_family = '"Microsoft JhengHei", "Segoe UI", sans-serif'
+        QApplication.instance().setStyleSheet(f"QWidget {{ font-size: {self.current_font_size}pt; font-family: {font_family}; }}")
 
     def _load_config(self):
         json_path = CONFIG_FILENAME
