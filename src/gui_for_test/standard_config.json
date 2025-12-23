@@ -100,7 +100,7 @@
                     ],
                     "logic": "AND",
                     "evidence_block": {
-                        "description_template": "(1) 於受測物登入介面輸入錯誤登入資訊。\n(2) 確認是否觸發鎖定機制。\n(3) 檢查通行碼複雜度。",
+                        "description_template": "(1) 於受測物登入介面輸入錯誤登入資訊(2) 確認是否觸發鎖定機制\n(3) 檢查通行碼複雜度",
                         "automation_tools": [],
                         "photo_gallery": {
                             "min_count": 1

@@ -19,6 +19,7 @@ dependencies = [
     "python-dotenv",
     "numpy",
     "PySide6",
+    "cve-bin-tool",
 ]
 
 [tool.setuptools.packages.find]

@@ -1467,9 +1467,6 @@ class OverviewPage(QWidget):
                 if has_file:
                     pix = QPixmap(full_path)
                     if not pix.isNull():
-                        # 縮放到 widget 的大小 (320x240)
-                        # Qt.KeepAspectRatio: 保持長寬比 (不會變形)
-                        # Qt.SmoothTransformation: 平滑縮放 (畫質較好)
                         scaled_pix = pix.scaled(
                             widget.size(), 
                             Qt.KeepAspectRatio, 
