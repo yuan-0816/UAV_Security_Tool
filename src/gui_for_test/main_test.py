@@ -38,6 +38,7 @@ from PySide6.QtGui import QPixmap, QShortcut, QKeySequence, QImage, QDesktopServ
 
 # 檔案系統設定
 CONFIG_FILENAME = "standard_config.json"
+CONFIG_DIR = "configs"
 PROJECT_SETTINGS_FILENAME = "project_settings.json"
 DIR_IMAGES = "images"
 DIR_REPORTS = "reports"
@@ -1004,6 +1005,134 @@ class ProjectManager(QObject):
                 return False
         return True
 
+
+
+class ConfigManager:
+    """
+    負責管理、掃描與讀取檢測規範設定檔
+    """
+    def __init__(self, config_dir=CONFIG_DIR):
+        self.config_dir = config_dir
+        self._ensure_dir()
+
+    def _ensure_dir(self):
+        if not os.path.exists(self.config_dir):
+            try:
+                os.makedirs(self.config_dir)
+            except OSError as e:
+                print(f"Error creating config dir: {e}")
+
+    def list_available_configs(self) -> List[Dict[str, str]]:
+        """
+        掃描目錄下的 .json 檔案，並讀取內容中的 standard_name 作為顯示名稱
+        回傳格式: [{'name': '顯示名稱', 'path': '完整路徑'}, ...]
+        """
+        configs = []
+        if not os.path.exists(self.config_dir):
+            return configs
+
+        for filename in os.listdir(self.config_dir):
+            if filename.endswith(".json"):
+                full_path = os.path.join(self.config_dir, filename)
+                
+                display_name = filename # 預設使用檔名
+                
+                # 嘗試讀取 JSON 內容以取得顯示名稱
+                try:
+                    with open(full_path, "r", encoding='utf-8-sig') as f:
+                        data = json.load(f)
+                        # 優先順序：standard_name > version > 檔名
+                        if "standard_name" in data:
+                            display_name = data["standard_name"]
+                        elif "version" in data:
+                            display_name = f"規範版本 {data['version']} ({filename})"
+                except Exception as e:
+                    print(f"Error reading config {filename}: {e}")
+                    display_name = f"{filename} (讀取錯誤)"
+
+                configs.append({
+                    "name": display_name,
+                    "path": full_path
+                })
+        
+        # 根據名稱排序
+        configs.sort(key=lambda x: x['name'], reverse=True) 
+        return configs
+
+    def load_config(self, path: str) -> Dict:
+        """
+        讀取指定的 JSON 設定檔
+        """
+        try:
+            with open(path, "r", encoding='utf-8-sig') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Loading config failed: {e}")
+            return {}
+
+
+class VersionSelectionDialog(QDialog):
+    """
+    啟動時的版本選擇視窗
+    """
+    def __init__(self, config_manager: ConfigManager):
+        super().__init__()
+        self.setWindowTitle("選擇檢測規範版本")
+        self.resize(400, 200)
+        self.cm = config_manager
+        self.selected_config = None
+        self.selected_path = None
+        self._init_ui()
+
+    def _init_ui(self):
+        layout = QVBoxLayout(self)
+        
+        layout.addWidget(QLabel("<h2>請選擇本次檢測使用的規範版本：</h2>"))
+        
+        self.combo = QComboBox()
+        self.configs = self.cm.list_available_configs()
+        
+        if not self.configs:
+            self.combo.addItem("找不到設定檔 (請檢查 configs 資料夾)")
+            self.combo.setEnabled(False)
+        else:
+            for cfg in self.configs:
+                self.combo.addItem(cfg['name'], cfg['path'])
+                
+        layout.addWidget(self.combo)
+        
+        # 提示訊息
+        hint = QLabel("設定檔請放置於程式目錄下的 'configs' 資料夾中")
+        hint.setStyleSheet("color: gray; font-size: 10pt;")
+        layout.addWidget(hint)
+        
+        layout.addStretch()
+        
+        btn_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        btn_box.accepted.connect(self.on_accept)
+        btn_box.rejected.connect(self.reject)
+        layout.addWidget(btn_box)
+
+    def on_accept(self):
+        if not self.configs:
+            QMessageBox.warning(self, "錯誤", "沒有可用的設定檔，無法啟動。")
+            return
+
+        idx = self.combo.currentIndex()
+        path = self.combo.itemData(idx)
+        
+        try:
+            data = self.cm.load_config(path)
+            # 簡單驗證這是否為有效的設定檔
+            if "test_standards" not in data:
+                raise ValueError("JSON 格式不符 (缺少 test_standards)")
+                
+            self.selected_config = data
+            self.selected_path = path
+            self.accept()
+        except Exception as e:
+            QMessageBox.critical(self, "讀取失敗", f"設定檔無效：\n{str(e)}")
+
 # ==============================================================================
 # SECTION 4: UI COMPONENTS (UI 元件層)
 # ==============================================================================
@@ -1777,11 +1906,15 @@ class UniversalTestPage(QWidget):
 # ==============================================================================
 
 class MainApp(QMainWindow):
-    def __init__(self):
+    def __init__(self, config):
         super().__init__()
-        self.setWindowTitle("無人機資安檢測工具 v2.0 Refactored")
+        self.config = config
+
+        # 檢查是否有設定檔名稱，若無則給預設
+        version_name = self.config.get("version", "Unknown")
+        self.setWindowTitle(f"無人機資安檢測工具 - 規範版本 {version_name}")
+
         self.resize(1200, 800)
-        self.config = self._load_config()
         
         self.pm = ProjectManager()
         self.pm.set_standard_config(self.config) 
@@ -2034,8 +2167,40 @@ class MainApp(QMainWindow):
         l.addWidget(UniversalTestPage(item, self.pm))
         self.win.show()
 
+# if __name__ == "__main__":
+#     app = QApplication(sys.argv)
+#     window = MainApp()
+#     window.show()
+#     sys.exit(app.exec())
+
+
+
 if __name__ == "__main__":
+    # 建立 QApplication
     app = QApplication(sys.argv)
-    window = MainApp()
-    window.show()
-    sys.exit(app.exec())
+    
+    # 1. 初始化配置管理器
+    # 預設指向同層級的 configs 資料夾
+    config_mgr = ConfigManager(config_dir="configs")
+    
+    # 為了方便測試，如果 configs 資料夾是空的，我們自動產生一個預設的檔案
+    # (實際部署時可移除這段，或改為內建 Resource)
+    if not config_mgr.list_available_configs():
+        default_path = os.path.join("configs", "standard_default.json")
+        # 這裡的 DEFAULT_CONFIG 就是你原本 standard_config.json 的內容 (Dict)
+        # 為了程式碼簡潔，這裡假設你手動放進去了，或者我們可以暫時寫入一個範例
+        # 若是正式環境，請手動將 standard_config.json 移入 configs/ 資料夾
+        print("未偵測到設定檔，請將 json 放入 configs 資料夾")
+
+    # 2. 顯示版本選擇視窗
+    sel_dialog = VersionSelectionDialog(config_mgr)
+    
+    # 3. 只有當使用者按下 OK 且成功讀取設定後，才啟動主程式
+    if sel_dialog.exec() == QDialog.Accepted and sel_dialog.selected_config:
+        config = sel_dialog.selected_config
+        window = MainApp(config)
+        window.show()
+        sys.exit(app.exec())
+    else:
+        # 使用者取消或無設定檔，直接退出
+        sys.exit(0)
