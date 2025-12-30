@@ -1,0 +1,211 @@
+{
+    "standard_name": "遙控無人機資安檢測規範_v1.0",
+    "version": "MODA_1.0",
+    "project_meta_schema": [
+        {
+            "key": "project_name",
+            "label": "專案名稱",
+            "type": "text",
+            "required": true,
+            "show_in_overview": true
+        },
+        {
+            "key": "report_id",
+            "label": "報告編號",
+            "type": "text",
+            "required": true,
+            "show_in_overview": true
+        },
+        {
+            "key": "tester",
+            "label": "檢測人員",
+            "type": "text",
+            "required": true,
+            "show_in_overview": true
+        },
+        {
+            "key": "uav_model",
+            "label": "無人機型號",
+            "type": "text",
+            "required": true,
+            "show_in_overview": true
+        },
+        {
+            "key": "gcs_model",
+            "label": "地面控制站型號",
+            "type": "text",
+            "required": true,
+            "show_in_overview": true
+        },
+        {
+            "key": "start_date",
+            "label": "檢測起始日期",
+            "type": "date",
+            "required": true,
+            "show_in_overview": true
+        },
+        {
+            "key": "test_scope",
+            "label": "檢測範圍",
+            "type": "checkbox_group",
+            "required": true,
+            "show_in_overview": true,
+            "options": [
+                
+            ]
+        },
+        {
+            "key": "save_path",
+            "label": "存檔位置",
+            "type": "path_selector",
+            "required": true
+        },
+        {
+            "key": "uav_photo_path",
+            "label": "UAV 照片",
+            "type": "hidden",
+            "required": false
+        },
+        {
+            "key": "gcs_photo_path",
+            "label": "GCS 照片",
+            "type": "hidden",
+            "required": false
+        }
+    ],
+    "test_standards": [
+        {
+            "section_id": "6",
+            "section_name": "6.系統檢測",
+            "items": [
+                {
+                    "id": "6.2.1",
+                    "name": "身分鑑別",
+                    "uid": "GCS_AUTH_CHECK",
+                    "criteria_version": "MODA_v1.0",
+                    "targets": [
+                        "GCS"
+                    ],
+                    "logic": "AND",
+                    "narrative": {
+                        "purpose": "查驗地面控制站之身分鑑別機制與通行碼強度是否具備防止暴力破解的能力，以及具備錯誤鎖定之防護功能。",
+                        "method": "(1) 於受測物登入介面輸入錯誤登入資訊。\n(2) 連續輸入錯誤達廠商自我宣告次數，確認是否具有鎖定機制，於一定時限內不可再進行登入驗證。\n(3) 登入受測物所使用的通行碼，且通行碼設置規則應具備高複雜度(符合8碼以上長度，且包含大小寫字母、特殊符號、數字設定），身分鑑別機制亦可採用生物特徵。",
+                        "criteria": "符合下列項目者為通過，否則為未通過\n(1) 受測物須提供身分鑑別機制，如：每次登入需輸入帳號及通行碼(包含生物特徵)。\n(2) 於受測物登入介面輸入錯誤登入資訊時，具有錯誤鎖定功能。\n(3) 受測物通行碼具備高複雜度(符合8碼以上長度，且包含大小寫字母、特殊符號、數字設定）。"
+                    },
+                    "handler": {
+                        "class_name": "BaseTestTool"
+                    },
+                    "checklist": [
+                        {
+                            "id": "c1",
+                            "content": "受測物須提供身分鑑別機制，如：每次登入需輸入帳號及通行碼(包含生物特徵)。"
+                        },
+                        {
+                            "id": "c2",
+                            "content": "於受測物登入介面輸入錯誤登入資訊時，具有錯誤鎖定功能。"
+                        },
+                        {
+                            "id": "c3",
+                            "content": "受測物通行碼具備高複雜度(符合8碼以上長度，且包含大小寫字母、特殊符號、數字設定）。"
+                        }
+                    ]
+                },
+                {
+                    "id": "6.2.2",
+                    "name": "網路服務埠檢測",
+                    "uid": "GCS_NET_PORT_SCAN",
+                    "criteria_version": "MODA_v1.0",
+                    "targets": [
+                        "GCS"
+                    ],
+                    "logic": "AND",
+                    "narrative": {
+                        "purpose": "確保地面控制站沒有存在非預期之網路服務埠。",
+                        "method": "(1) 將測試設備連接受測物，啟用受測物廠商所宣告之網路服務。\n(2) 使用網路埠掃描工具，對受測物執行TCP 與UDP 之0～65535埠之掃描。\n(3) 核對掃描結果所呈現之網路服務與對應埠。\n(4) 比對受測物送審資料中所聲明之網路服務與對應埠。",
+                        "criteria": "符合下列項目者為通過，否則為未通過\n受測物所開啟之網路服務與對應埠，與送測資料之內容相符。"
+                    },
+                    "handler": {
+                        "class_name": "BaseTestTool"
+                    },
+                    "checklist": [
+                        {
+                            "id": "c1",
+                            "content": "受測物所開啟之網路服務與對應埠，與送測資料之內容相符。"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "section_id": "7",
+            "section_name": "7.群飛系統資安檢測",
+            "items": [
+            ]
+        },
+        {
+            "section_id": "8.1",
+            "section_name": "8.1.一般要求增項",
+            "items": [
+                {
+                    "id": "8.1.1",
+                    "name": "衛星定位系統強化",
+                    "uid": "UAV_GPS_SPOOF_RESILIENCE",
+                    "criteria_version": "MODA_v1.0",
+                    "targets": [
+                        "UAV"
+                    ],
+                    "logic": "AND",
+                    "narrative": {
+                        "purpose": "查驗遙控無人機應具備定位強化機制，並非測試其定位精準度，而是確保衛星定位系統訊號異常時，具備妥善應變作為，以避免偽造衛星定位系統訊號使遙控無人機接收錯誤位置資訊，可能導致遙控無人機被劫持或影響遙控無人機本身衛星定位系統相關功能，包括禁航區限制(no-fly zone)、自動回航(Return to home)、跟隨(Follow me)、自動巡航(Waypoint)等。",
+                        "method": "(1)將受測物升空飛行，使用衛星定位系統訊號產生工具產生離目前定位差距高於100公里之異常距離衛星定位訊號，並發送予受測物以進行定位欺騙。\n(2)確認受測物遭受攻擊後是否有偏離原有的飛行路線。\n(3)確認受測物遭受攻擊後是否啟動故障處理機制進行迫降或返航模式。",
+                        "criteria": "符合下列項目者為通過，否則為未通過\n(1)受測物不受偽造衛星定位系統訊號影響，仍維持正確的飛行路線。\n(2)或者受測物啟動故障處理機制進行迫降，或進入返航模式強迫無人機返回起飛地。"
+                    },
+                    "handler": {
+                        "class_name": "BaseTestTool"
+                    },
+                    "checklist": [
+                        {
+                            "id": "c1",
+                            "content": "受測物不受偽造衛星定位系統訊號影響，仍維持正確的飛行路線。"
+                        },
+                        {
+                            "id": "c2",
+                            "content": "受測物啟動故障處理機制進行迫降，或進入返航模式強迫無人機返回起飛地。"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "section_id": "8.2",
+            "section_name": "8.2.特殊安全要求增項",
+            "items": [
+                {
+                    "id": "8.2.1",
+                    "name": "數據儲存安全",
+                    "uid": "UAV_GCS_DATA_STORAGE_ENCRYPTION",
+                    "criteria_version": "MODA_v1.0",
+                    "targets": [
+                        "UAV",
+                        "GCS"
+                    ],
+                    "logic": "AND",
+                    "narrative": {
+                        "purpose": "查驗受測物之飛行紀錄等機敏資料，如有儲存至非揮發性記憶體儲存體應加密處理後儲存。機敏資料包括飛控紀錄，及廠商應提供機敏資料之定義說明。",
+                        "method": "(1) 連接受測物，依廠商提供之數據資料儲存位置，檢查儲存內容之數據資料部份是否經加密處理。\n(2) 確認匯出受測物之飛行紀錄等資料，檢查是否經加密處理。",
+                        "criteria": "廠商提供之飛行紀錄等資料儲存位置，儲存內容之數據資料部分應採用FIPS 140-2 Annex A 以上之版本所核可之加密處理機制進行加密。"
+                    },
+                    "handler": {
+                        "class_name": "BaseTestTool"
+                    },
+                    "checklist": [
+                        {
+                            "id": "c1",
+                            "content": "廠商提供之飛行紀錄等資料儲存位置，儲存內容之數據資料部分應採用FIPS 140-2 Annex A 以上之版本所核可之加密處理機制進行加密。"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
