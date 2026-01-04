@@ -57,7 +57,7 @@ from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect,
     QSizeGrip,
 )
-from PySide6.QtCore import Qt, QDate, QObject, Signal, Slot, QUrl, QSize
+from PySide6.QtCore import Qt, QDate, QObject, Signal, Slot, QUrl, QSize, QThread
 from PySide6.QtGui import QPixmap, QShortcut, QKeySequence, QImage, QColor, QMouseEvent
 
 
@@ -360,62 +360,66 @@ class PhotoServer(QObject):
 
 
 # ==============================================================================
-# SECTION 2.5: TOOL HANDLER SYSTEM (新增：檢測工具處理層)
+# SECTION 2.5: TOOL HANDLER SYSTEM (檢測工具處理層 - 分層架構)
 # ==============================================================================
 
+# ------------------------------------------------------------------------------
+# View Layer: BaseTestToolView (UI 層)
+# ------------------------------------------------------------------------------
 
-class BaseTestTool(QObject):
+
+class BaseTestToolView(QWidget):
     """
-    通用檢測工具 (Universal Test Tool)：
-    角色：這是「測項的具體內容與邏輯」。
-    職責：
-        顯示規範文字 (Narrative)。
-        產生 Checkbox 列表。
-        執行自動判定邏輯 (AND/OR)。
-        生成自動備註文字。
-    特點：它不管存檔、不管上傳照片，它只管「測試內容本身」。
+    基礎測項 UI 視圖
+    職責：只負責 UI 呈現，透過 Signal 發送使用者操作事件
+    子類別可覆寫 _build_custom_section() 來新增專屬 UI
     """
 
-    data_updated = Signal(dict)
-    status_changed = Signal(str)
-    checklist_changed = Signal()
+    # Signals - 發送給 Controller
+    check_changed = Signal(str, bool)  # (item_id, checked)
+    note_changed = Signal(str)
 
-    def __init__(self, config, result_data, target):
-        super().__init__()
+    def __init__(self, config: dict, parent=None):
+        super().__init__(parent)
         self.config = config
-        self.result_data = result_data
-        self.target = target
-        self.widget = QWidget()
-
-        # 內部狀態
-        self.checks = {}
-        self.item_content_map = {}
-        self.logic = self.config.get("logic", "AND").upper()
-
-        # 初始化 UI 與載入資料
+        self.logic = config.get("logic", "AND").upper()
+        self.checks: Dict[str, QCheckBox] = {}
         self._init_ui()
-        if result_data:
-            self.load_data(result_data)
-
-    def get_widget(self) -> QWidget:
-        return self.widget
-
-    # [New] 提供外部正確獲取備註文字的方法
-    def get_user_note(self) -> str:
-        return self.user_note.toPlainText()
-
-    # [New] 提供外部設定備註文字的方法
-    def set_user_note(self, text: str):
-        if self.user_note.toPlainText() != text:
-            self.user_note.setPlainText(text)
 
     def _init_ui(self):
-        """建構完整的檢測 UI"""
-        layout = QVBoxLayout(self.widget)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(10)
+        """建構 UI - 使用 Template Method Pattern"""
+        # 主佈局：水平排列（左：基礎 UI，右：客製化區域）
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(15)
+
+        # 左側容器：基礎測項 UI
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(10)
 
         # 1. 邏輯提示
+        self._build_logic_hint(left_layout)
+
+        # 2. 規範敘述區
+        self._build_narrative(left_layout)
+
+        # 3. Checkbox 區塊
+        self._build_checklist(left_layout)
+
+        # 4. 備註區
+        self._build_note_section(left_layout)
+
+        main_layout.addWidget(left_widget, stretch=1)
+
+        # 右側容器：客製化區域 (子類別覆寫此方法)
+        right_widget = self._build_custom_section()
+        if right_widget:
+            main_layout.addWidget(right_widget, stretch=1)
+
+    def _build_logic_hint(self, layout: QVBoxLayout):
+        """建立判定邏輯提示"""
         logic_desc = (
             "須符合所有項目 (AND)" if self.logic == "AND" else "符合任一項目即可 (OR)"
         )
@@ -423,7 +427,8 @@ class BaseTestTool(QObject):
         lbl_logic.setStyleSheet("color: #1976D2; font-weight: bold; font-size: 11pt;")
         layout.addWidget(lbl_logic)
 
-        # 2. 規範敘述區
+    def _build_narrative(self, layout: QVBoxLayout):
+        """建立規範敘述區"""
         narrative = self.config.get("narrative", {})
         checklist_data = self.config.get("checklist", [])
 
@@ -453,7 +458,6 @@ class BaseTestTool(QObject):
             f"<div style='margin-left:10px; color:#D32F2F;'>{criteria_html}</div>"
         )
 
-        # 這是第一個 QTextEdit (規範說明)
         self.desc_edit = QTextEdit()
         self.desc_edit.setHtml(display_html)
         self.desc_edit.setReadOnly(True)
@@ -470,26 +474,15 @@ class BaseTestTool(QObject):
         g1.setLayout(v1)
         layout.addWidget(g1)
 
-        # 3. Checkbox 區塊
-        if checklist_data:
-            checklist_widget = self._create_checklist_widget(checklist_data)
-            layout.addWidget(checklist_widget)
+    def _build_checklist(self, layout: QVBoxLayout):
+        """建立 Checkbox 列表"""
+        checklist_data = self.config.get("checklist", [])
+        if not checklist_data:
+            return
 
-        # 4. 備註/觀察結果區
-        g3 = QGroupBox("判定原因 / 備註")
-        v3 = QVBoxLayout()
-        # 這是第二個 QTextEdit (備註欄)
-        self.user_note = QTextEdit()
-        self.user_note.setPlaceholderText("合格時可留空，不合格時系統將自動帶入原因...")
-        self.user_note.setFixedHeight(80)
-        v3.addWidget(self.user_note)
-        g3.setLayout(v3)
-        layout.addWidget(g3)
-
-    def _create_checklist_widget(self, checklist_data: list) -> QGroupBox:
         gb = QGroupBox("細項檢查表 (Checklist)")
-        layout = QVBoxLayout()
-        layout.setSpacing(8)
+        gb_layout = QVBoxLayout()
+        gb_layout.setSpacing(8)
 
         for item in checklist_data:
             row_widget = QWidget()
@@ -502,42 +495,430 @@ class BaseTestTool(QObject):
             chk.setStyleSheet("QCheckBox::indicator { width: 20px; height: 20px; }")
 
             content = item.get("content", item.get("id"))
-            self.item_content_map[item["id"]] = content
+            item_id = item["id"]
 
             lbl = QLabel(content)
             lbl.setWordWrap(True)
             lbl.setStyleSheet("font-size: 11pt; line-height: 1.2;")
             lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
-            chk.stateChanged.connect(self._on_check_changed)
-            self.checks[item["id"]] = chk
+            # 綁定事件 - 發送 Signal
+            chk.stateChanged.connect(
+                lambda state, cid=item_id: self.check_changed.emit(
+                    cid, state == Qt.Checked
+                )
+            )
+            self.checks[item_id] = chk
 
             row_layout.addWidget(chk, 0, Qt.AlignTop)
             row_layout.addWidget(lbl, 1)
-            layout.addWidget(row_widget)
+            gb_layout.addWidget(row_widget)
 
-        gb.setLayout(layout)
-        return gb
+        gb.setLayout(gb_layout)
+        layout.addWidget(gb)
 
-    def _on_check_changed(self):
+    def _build_custom_section(self) -> Optional[QWidget]:
+        """
+        子類別擴展區 - 子類別覆寫此方法來新增專屬 UI
+        回傳 QWidget 將顯示在右側，回傳 None 則不顯示
+        """
+        return None
+
+    def _build_note_section(self, layout: QVBoxLayout):
+        """建立備註區"""
+        g3 = QGroupBox("判定原因 / 備註")
+        v3 = QVBoxLayout()
+        self.user_note = QTextEdit()
+        self.user_note.setPlaceholderText("合格時可留空，不合格時系統將自動帶入原因...")
+        self.user_note.setFixedHeight(80)
+        self.user_note.textChanged.connect(
+            lambda: self.note_changed.emit(self.user_note.toPlainText())
+        )
+        v3.addWidget(self.user_note)
+        g3.setLayout(v3)
+        layout.addWidget(g3)
+
+    # ----- View 的 Getter/Setter 方法 (供 Controller 使用) -----
+
+    def set_check_state(self, item_id: str, checked: bool, block_signal: bool = False):
+        """設定 checkbox 狀態"""
+        if item_id in self.checks:
+            chk = self.checks[item_id]
+            if block_signal:
+                chk.blockSignals(True)
+            chk.setChecked(checked)
+            if block_signal:
+                chk.blockSignals(False)
+
+    def get_check_states(self) -> Dict[str, bool]:
+        """取得所有 checkbox 狀態"""
+        return {k: c.isChecked() for k, c in self.checks.items()}
+
+    def get_note(self) -> str:
+        return self.user_note.toPlainText()
+
+    def set_note(self, text: str):
+        if self.user_note.toPlainText() != text:
+            self.user_note.setPlainText(text)
+
+
+# ------------------------------------------------------------------------------
+# View Layer: CommandTestToolView (指令執行通用 UI)
+# ------------------------------------------------------------------------------
+
+
+class CommandTestToolView(BaseTestToolView):
+    """
+    指令執行測項通用 UI 視圖
+    繼承 BaseTestToolView，提供：
+    - 指令輸入/編輯區
+    - 執行按鈕
+    - 結果顯示區
+    - 截圖/儲存 Log 按鈕
+
+    子類別可覆寫：
+    - _build_input_section(): 新增專屬輸入欄位 (如 IP、Port 等)
+    - _get_tool_title(): 工具標題
+    - _get_result_placeholder(): 結果區預設文字
+    """
+
+    # Signals
+    run_requested = Signal(str)  # 發送要執行的指令
+    screenshot_requested = Signal()  # 請求截圖
+    save_log_requested = Signal()  # 請求儲存 log
+
+    def _build_custom_section(self) -> QWidget:
+        """覆寫：建立指令執行通用 UI (顯示在右側)"""
+        container = QWidget()
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setSpacing(10)
+
+        # 1. 工具設定區 (包含子類別專屬輸入)
+        g_tool = QGroupBox(self._get_tool_title())
+        v = QVBoxLayout()
+        v.setSpacing(8)
+
+        # 子類別專屬輸入區
+        input_section = self._build_input_section()
+        if input_section:
+            v.addWidget(input_section)
+
+        # 指令顯示/編輯區
+        v.addWidget(QLabel("將執行的指令 (可自訂)："))
+        self.command_edit = QLineEdit()
+        self.command_edit.setStyleSheet(
+            "font-family: monospace; background-color: #2d2d2d; color: #00ff00; padding: 5px;"
+        )
+        v.addWidget(self.command_edit)
+
+        # 執行按鈕
+        h_btn = QHBoxLayout()
+        self.btn_run = QPushButton(self._get_run_button_text())
+        self.btn_run.setStyleSheet(
+            "background-color: #4CAF50; color: white; font-weight: bold; padding: 8px;"
+        )
+        self.btn_run.clicked.connect(self._on_run_clicked)
+        h_btn.addWidget(self.btn_run)
+        h_btn.addStretch()
+        v.addLayout(h_btn)
+
+        g_tool.setLayout(v)
+        container_layout.addWidget(g_tool)
+
+        # 2. 結果顯示區 - 延伸到底部
+        g_result = QGroupBox("執行結果")
+        v_result = QVBoxLayout()
+
+        self.result_text = QTextEdit()
+        self.result_text.setReadOnly(True)
+        self.result_text.setStyleSheet(
+            "font-family: monospace; background-color: #1e1e1e; color: #d4d4d4; font-size: 10pt;"
+        )
+        self.result_text.setPlaceholderText(self._get_result_placeholder())
+        v_result.addWidget(self.result_text, stretch=1)
+
+        # 操作按鈕列
+        h_actions = QHBoxLayout()
+
+        self.btn_screenshot = QPushButton("📷 擷取截圖加入佐證")
+        self.btn_screenshot.setStyleSheet("padding: 6px;")
+        self.btn_screenshot.clicked.connect(lambda: self.screenshot_requested.emit())
+        h_actions.addWidget(self.btn_screenshot)
+
+        self.btn_save_log = QPushButton("💾 儲存 Log 紀錄")
+        self.btn_save_log.setStyleSheet("padding: 6px;")
+        self.btn_save_log.clicked.connect(lambda: self.save_log_requested.emit())
+        h_actions.addWidget(self.btn_save_log)
+
+        h_actions.addStretch()
+        v_result.addLayout(h_actions)
+
+        g_result.setLayout(v_result)
+        container_layout.addWidget(g_result, stretch=1)
+
+        # 初始化指令
+        self._update_command_preview()
+
+        return container
+
+    # ----- 子類別可覆寫的方法 -----
+
+    def _build_input_section(self) -> Optional[QWidget]:
+        """
+        子類別覆寫：建立專屬輸入區
+        回傳 QWidget 將顯示在指令輸入框上方
+        """
+        return None
+
+    def _get_tool_title(self) -> str:
+        """子類別覆寫：工具標題"""
+        return "🔧 指令執行設定"
+
+    def _get_run_button_text(self) -> str:
+        """子類別覆寫：執行按鈕文字"""
+        return "▶️ 執行"
+
+    def _get_running_button_text(self) -> str:
+        """子類別覆寫：執行中按鈕文字"""
+        return "⏳ 執行中..."
+
+    def _get_result_placeholder(self) -> str:
+        """子類別覆寫：結果區預設文字"""
+        return "執行結果將顯示於此..."
+
+    def _update_command_preview(self):
+        """子類別覆寫：更新指令預覽"""
+        pass
+
+    def _validate_before_run(self) -> bool:
+        """子類別覆寫：執行前驗證，回傳 False 則不執行"""
+        cmd = self.command_edit.text().strip()
+        if not cmd:
+            QMessageBox.warning(self, "錯誤", "請輸入指令")
+            return False
+        return True
+
+    def _on_run_clicked(self):
+        """執行按鈕點擊"""
+        if not self._validate_before_run():
+            return
+        cmd = self.command_edit.text().strip()
+        self.run_requested.emit(cmd)
+
+    # ----- View 通用方法 -----
+
+    def set_running(self, is_running: bool):
+        """設定執行中狀態"""
+        self.btn_run.setEnabled(not is_running)
+        self.btn_run.setText(
+            self._get_running_button_text()
+            if is_running
+            else self._get_run_button_text()
+        )
+        self.command_edit.setEnabled(not is_running)
+        self._set_inputs_enabled(not is_running)
+
+    def _set_inputs_enabled(self, enabled: bool):
+        """子類別覆寫：設定專屬輸入欄位的啟用狀態"""
+        pass
+
+    def set_result(self, text: str):
+        """設定結果"""
+        self.result_text.setPlainText(text)
+
+    def append_result(self, text: str):
+        """附加結果"""
+        self.result_text.append(text)
+
+    def get_command(self) -> str:
+        return self.command_edit.text().strip()
+
+    def get_result_text(self) -> str:
+        return self.result_text.toPlainText()
+
+
+# ------------------------------------------------------------------------------
+# View Layer: NmapTestToolView (Nmap 專用 UI)
+# ------------------------------------------------------------------------------
+
+
+class NmapTestToolView(CommandTestToolView):
+    """
+    Nmap 網路埠掃描測項 UI
+    繼承 CommandTestToolView，新增 Nmap 專屬輸入欄位
+    """
+
+    def _build_input_section(self) -> QWidget:
+        """覆寫：建立 Nmap 專屬輸入區"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        # 目標 IP 輸入
+        h_ip = QHBoxLayout()
+        h_ip.addWidget(QLabel("目標 IP："))
+        self.ip_input = QLineEdit()
+        self.ip_input.setPlaceholderText("例如：192.168.1.1")
+        self.ip_input.textChanged.connect(self._update_command_preview)
+        h_ip.addWidget(self.ip_input)
+        layout.addLayout(h_ip)
+
+        # 掃描類型選擇
+        h_type = QHBoxLayout()
+        h_type.addWidget(QLabel("掃描類型："))
+        self.combo_scan_type = QComboBox()
+        self.combo_scan_type.addItems(
+            [
+                "-sT (TCP Connect - 不需 root)",
+                "-sS (TCP SYN - 需 root)",
+                "-sU (UDP - 需 root)",
+            ]
+        )
+        self.combo_scan_type.currentTextChanged.connect(self._update_command_preview)
+        h_type.addWidget(self.combo_scan_type)
+        layout.addLayout(h_type)
+
+        # Port 範圍
+        h_port = QHBoxLayout()
+        h_port.addWidget(QLabel("Port 範圍："))
+        self.port_input = QLineEdit()
+        self.port_input.setPlaceholderText("例如：1-1024 或 0-65535")
+        self.port_input.setText("0-65535")
+        self.port_input.textChanged.connect(self._update_command_preview)
+        h_port.addWidget(self.port_input)
+        layout.addLayout(h_port)
+
+        return widget
+
+    def _get_tool_title(self) -> str:
+        return "🔍 網路埠掃描設定"
+
+    def _get_run_button_text(self) -> str:
+        return "▶️ 開始掃描"
+
+    def _get_running_button_text(self) -> str:
+        return "⏳ 掃描中..."
+
+    def _get_result_placeholder(self) -> str:
+        return "掃描結果將顯示於此..."
+
+    def _update_command_preview(self):
+        """覆寫：更新 Nmap 指令預覽"""
+        ip = self.ip_input.text().strip()
+        scan_type = self.combo_scan_type.currentText().split()[0]
+        port_range = self.port_input.text().strip()
+
+        if ip:
+            cmd = f"nmap {scan_type} -p {port_range} {ip}"
+        else:
+            cmd = f"nmap {scan_type} -p {port_range} <目標IP>"
+
+        self.command_edit.setText(cmd)
+
+    def _validate_before_run(self) -> bool:
+        """覆寫：驗證 IP 是否已輸入"""
+        cmd = self.command_edit.text().strip()
+        if "<目標IP>" in cmd or not cmd:
+            QMessageBox.warning(self, "錯誤", "請先輸入目標 IP")
+            return False
+        return True
+
+    def _set_inputs_enabled(self, enabled: bool):
+        """覆寫：設定 Nmap 專屬輸入欄位的啟用狀態"""
+        self.ip_input.setEnabled(enabled)
+        self.combo_scan_type.setEnabled(enabled)
+        self.port_input.setEnabled(enabled)
+
+    # ----- Nmap 專用方法 (保持相容性) -----
+
+    def set_scanning(self, is_scanning: bool):
+        """相容舊 API"""
+        self.set_running(is_scanning)
+
+    def get_scan_result(self) -> str:
+        """相容舊 API"""
+        return self.get_result_text()
+
+
+# ------------------------------------------------------------------------------
+# Tool Layer: BaseTestTool (邏輯+控制層)
+# ------------------------------------------------------------------------------
+
+
+class BaseTestTool(QObject):
+    """
+    基礎測項工具 (邏輯 + 控制層)
+    職責：
+    - 建立並管理 View
+    - 處理 checkbox 判定邏輯 (AND/OR)
+    - 計算 Pass/Fail 結果
+    - 資料存取
+    """
+
+    data_updated = Signal(dict)
+    status_changed = Signal(str)
+    checklist_changed = Signal()
+
+    def __init__(self, config, result_data, target):
+        super().__init__()
+        self.config = config
+        self.result_data = result_data
+        self.target = target
+        self.logic = config.get("logic", "AND").upper()
+
+        # 內容對照 (用於產生失敗原因)
+        self.item_content_map = {}
+        for item in config.get("checklist", []):
+            self.item_content_map[item["id"]] = item.get("content", item["id"])
+
+        # 建立 View
+        self.view = self._create_view(config)
+
+        # 綁定 View 事件
+        self.view.check_changed.connect(self._on_check_changed)
+
+        # 載入已存資料
+        if result_data:
+            self._load_data(result_data)
+
+    def _create_view(self, config) -> BaseTestToolView:
+        """
+        建立 View - 子類別覆寫此方法回傳不同的 View 類別
+        """
+        return BaseTestToolView(config)
+
+    def get_widget(self) -> QWidget:
+        """回傳 UI Widget"""
+        return self.view
+
+    def get_user_note(self) -> str:
+        return self.view.get_note()
+
+    def set_user_note(self, text: str):
+        self.view.set_note(text)
+
+    def _on_check_changed(self, item_id: str, checked: bool):
+        """處理 checkbox 變更"""
         status, fail_reason = self.calculate_result()
         self.status_changed.emit(status)
 
         if status == STATUS_FAIL:
-            self.user_note.setPlainText(fail_reason)
+            self.view.set_note(fail_reason)
         else:
-            curr_text = self.user_note.toPlainText()
+            curr_text = self.view.get_note()
             if "未通過" in curr_text or "未符合" in curr_text:
-                self.user_note.setPlainText("符合規範要求。")
+                self.view.set_note("符合規範要求。")
 
     def calculate_result(self) -> Tuple[str, str]:
-        if not self.checks:
+        """計算判定結果"""
+        check_states = self.view.get_check_states()
+        if not check_states:
             return STATUS_FAIL, "無檢查項目"
 
-        criteria_res = {k: c.isChecked() for k, c in self.checks.items()}
-        values = list(criteria_res.values())
+        values = list(check_states.values())
 
-        is_pass = False
         if self.logic == "OR":
             is_pass = any(values)
         else:
@@ -547,49 +928,382 @@ class BaseTestTool(QObject):
         fail_reason = ""
 
         if status == STATUS_FAIL:
-            fail_list = []
             if self.logic == "AND":
-                for cid, checked in criteria_res.items():
-                    if not checked:
-                        fail_list.append(self.item_content_map.get(cid, cid))
+                fail_list = [
+                    self.item_content_map.get(cid, cid)
+                    for cid, checked in check_states.items()
+                    if not checked
+                ]
                 if fail_list:
                     fail_reason = "未通過，原因如下：\n" + "\n".join(
                         f"- 未符合：{r}" for r in fail_list
                     )
-            elif self.logic == "OR":
+            else:  # OR
                 fail_reason = "未通過，原因：上述所有項目皆未符合。"
 
         return status, fail_reason
 
     def get_result(self) -> Dict:
+        """取得結果資料 (供儲存)"""
         status, _ = self.calculate_result()
-        criteria_res = {k: c.isChecked() for k, c in self.checks.items()}
         return {
-            "criteria": criteria_res,
-            "description": self.user_note.toPlainText(),
+            "criteria": self.view.get_check_states(),
+            "description": self.view.get_note(),
             "auto_suggest_result": status,
         }
 
-    def load_data(self, data):
+    def _load_data(self, data):
+        """載入已存資料"""
         saved_criteria = data.get("criteria", {})
 
-        # 1. 回填 Checkbox (暫停訊號)
-        for cid, chk in self.checks.items():
-            if cid in saved_criteria:
-                chk.blockSignals(True)
-                chk.setChecked(saved_criteria[cid])
-                chk.blockSignals(False)
+        # 回填 Checkbox
+        for cid, checked in saved_criteria.items():
+            self.view.set_check_state(cid, checked, block_signal=True)
 
-        # 2. 回填文字
-        self.user_note.setPlainText(data.get("description", ""))
+        # 回填備註
+        self.view.set_note(data.get("description", ""))
+
+    def load_data(self, data):
+        """公開的載入方法"""
+        self._load_data(data)
+
+
+# ------------------------------------------------------------------------------
+# Tool Layer: CommandWorker (通用指令執行緒)
+# ------------------------------------------------------------------------------
+
+
+class CommandWorker(QThread):
+    """
+    通用指令執行工作執行緒 - 避免 UI 凍結
+    支援 pkexec 提權、即時輸出、取消執行
+    """
+
+    output_ready = Signal(str)  # 即時輸出
+    finished_signal = Signal(str)  # 執行完成
+
+    def __init__(self, command: list, parent=None):
+        super().__init__(parent)
+        self.command = command
+        self._is_cancelled = False
+
+    def run(self):
+        import subprocess
+
+        try:
+            process = subprocess.Popen(
+                self.command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+
+            full_output = ""
+            for line in iter(process.stdout.readline, ""):
+                if self._is_cancelled:
+                    process.terminate()
+                    break
+                full_output += line
+                self.output_ready.emit(line)
+
+            process.stdout.close()
+            process.wait()
+            self.finished_signal.emit(full_output)
+
+        except FileNotFoundError:
+            self.output_ready.emit("❌ 找不到指令，請確認已安裝\n")
+            self.finished_signal.emit("")
+        except Exception as e:
+            self.output_ready.emit(f"❌ 執行失敗：{str(e)}\n")
+            self.finished_signal.emit("")
+
+    def cancel(self):
+        self._is_cancelled = True
+
+
+# 相容舊名稱
+NmapWorker = CommandWorker
+
+
+# ------------------------------------------------------------------------------
+# Tool Layer: CommandTestTool (通用指令執行邏輯)
+# ------------------------------------------------------------------------------
+
+
+class CommandTestTool(BaseTestTool):
+    """
+    指令執行測項工具 (通用基礎類別)
+    繼承 BaseTestTool，提供：
+    - 指令執行 (使用 QThread 避免 UI 凍結)
+    - 截圖功能
+    - Log 儲存功能
+
+    子類別可覆寫：
+    - _get_tool_name(): 工具名稱 (用於檔名)
+    - _get_screenshot_title(): 截圖建議標題
+    - _get_log_header(): Log 檔案標頭
+    - _needs_root(command): 判斷是否需要 root 權限
+    - _get_command_data_key(): 資料儲存的 key 名稱
+    - _load_command_data(data): 載入專用資料
+    """
+
+    # Signals
+    screenshot_taken = Signal(str, str)  # (image_path, suggested_title)
+    log_saved = Signal(str)  # log_path
+
+    def __init__(self, config, result_data, target):
+        super().__init__(config, result_data, target)
+
+        # 指令執行狀態
+        self.last_command = ""
+        self.last_result = ""
+        self.worker = None
+        self.log_path = ""
+        self.project_path = ""
+
+        # 綁定 View 事件
+        self.view.run_requested.connect(self._run_command)
+        self.view.screenshot_requested.connect(self._take_screenshot)
+        self.view.save_log_requested.connect(self._save_log)
+
+        # 載入專用資料
+        if result_data:
+            self._load_command_data(result_data)
+
+    def set_project_path(self, path: str):
+        """設定專案路徑 (由 SingleTargetTestWidget 呼叫)"""
+        self.project_path = path
+
+    def _create_view(self, config) -> CommandTestToolView:
+        """覆寫：回傳 CommandTestToolView"""
+        return CommandTestToolView(config)
+
+    def _run_command(self, command: str):
+        """執行指令 (使用 QThread)"""
+        # 如果已有執行中的指令，先取消
+        if self.worker and self.worker.isRunning():
+            self.worker.cancel()
+            self.worker.wait()
+
+        self.last_command = command
+        self.last_result = ""
+        self.view.set_running(True)
+
+        # 判斷是否需要 root 權限
+        needs_root = self._needs_root(command)
+
+        if needs_root:
+            full_command = ["pkexec"] + command.split()
+            self.view.set_result(
+                f"執行指令 (需要 root 權限)：pkexec {command}\n\n請在彈出視窗中輸入密碼...\n\n"
+            )
+        else:
+            full_command = command.split()
+            self.view.set_result(f"執行指令：{command}\n\n")
+
+        # 建立並啟動工作執行緒
+        self.worker = CommandWorker(full_command)
+        self.worker.output_ready.connect(self._on_output)
+        self.worker.finished_signal.connect(self._on_finished)
+        self.worker.start()
+
+    def _on_output(self, line: str):
+        """即時處理輸出"""
+        self.last_result += line
+        self.view.append_result(line)
+
+    def _on_finished(self, full_output: str):
+        """執行完成處理"""
+        self.view.set_running(False)
+        if full_output:
+            self.view.append_result("\n✅ 執行完成")
+
+    def _take_screenshot(self):
+        """擷取結果截圖"""
+        if not self.project_path:
+            QMessageBox.warning(None, "錯誤", "專案路徑未設定，無法儲存截圖")
+            return
+
+        # 建立 report 資料夾
+        report_dir = os.path.join(self.project_path, "report")
+        os.makedirs(report_dir, exist_ok=True)
+
+        # 擷取 result_text 的截圖
+        result_widget = self.view.result_text
+        pixmap = result_widget.grab()
+
+        # 產生檔名
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{self._get_tool_name()}_screenshot_{timestamp}.png"
+        filepath = os.path.join(report_dir, filename)
+
+        # 儲存截圖
+        pixmap.save(filepath, "PNG")
+
+        # 產生建議標題
+        suggested_title = self._get_screenshot_title(timestamp)
+
+        # 發送 Signal 通知 SingleTargetTestWidget
+        self.screenshot_taken.emit(filepath, suggested_title)
+
+        QMessageBox.information(
+            None, "截圖成功", f"截圖已儲存並加入佐證資料：\n{filename}"
+        )
+
+    def _save_log(self):
+        """儲存 log 紀錄"""
+        if not self.project_path:
+            QMessageBox.warning(None, "錯誤", "專案路徑未設定，無法儲存 log")
+            return
+
+        if not self.last_result:
+            QMessageBox.warning(None, "錯誤", "沒有執行結果可儲存")
+            return
+
+        # 建立 report 資料夾
+        report_dir = os.path.join(self.project_path, "report")
+        os.makedirs(report_dir, exist_ok=True)
+
+        # 產生檔名
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{self._get_tool_name()}_log_{timestamp}.txt"
+        filepath = os.path.join(report_dir, filename)
+
+        # 儲存 log
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(self._get_log_header())
+            f.write(f"# 時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"# 指令：{self.last_command}\n")
+            f.write(f"# ===================================\n\n")
+            f.write(self.last_result)
+
+        # 更新 log 路徑
+        self.log_path = os.path.relpath(filepath, self.project_path)
+
+        # 發送 Signal
+        self.log_saved.emit(self.log_path)
+
+        QMessageBox.information(None, "儲存成功", f"Log 已儲存：\n{filename}")
+
+    def get_result(self) -> Dict:
+        """覆寫：加入指令執行專用資料"""
+        base_result = super().get_result()
+        data_key = self._get_command_data_key()
+        base_result[f"{data_key}_command"] = self.last_command
+        base_result[f"{data_key}_result"] = self.log_path
+        return base_result
+
+    # ----- 子類別可覆寫的方法 -----
+
+    def _get_tool_name(self) -> str:
+        """子類別覆寫：工具名稱 (用於檔名)"""
+        return "command"
+
+    def _get_screenshot_title(self, timestamp: str) -> str:
+        """子類別覆寫：截圖建議標題"""
+        return f"指令執行結果 ({timestamp})"
+
+    def _get_log_header(self) -> str:
+        """子類別覆寫：Log 檔案標頭"""
+        return "# 指令執行紀錄\n"
+
+    def _needs_root(self, command: str) -> bool:
+        """子類別覆寫：判斷是否需要 root 權限"""
+        return False
+
+    def _get_command_data_key(self) -> str:
+        """子類別覆寫：資料儲存的 key 前綴"""
+        return "command"
+
+    def _load_command_data(self, data):
+        """子類別覆寫：載入專用資料"""
+        data_key = self._get_command_data_key()
+        self.last_command = data.get(f"{data_key}_command", "")
+        self.log_path = data.get(f"{data_key}_result", "")
+
+        if self.last_command:
+            self.view.command_edit.setText(self.last_command)
+
+        # 從 log 檔案讀取結果
+        if self.log_path and self.project_path:
+            log_full_path = os.path.join(self.project_path, self.log_path)
+            if os.path.exists(log_full_path):
+                try:
+                    with open(log_full_path, "r", encoding="utf-8") as f:
+                        self.last_result = f.read()
+                    self.view.set_result(self.last_result)
+                except Exception:
+                    pass
+
+
+# ------------------------------------------------------------------------------
+# Tool Layer: NmapTestTool (Nmap 專用邏輯)
+# ------------------------------------------------------------------------------
+
+
+class NmapTestTool(CommandTestTool):
+    """
+    Nmap 網路埠掃描測項工具
+    繼承 CommandTestTool，只需覆寫專屬方法
+    """
+
+    def _create_view(self, config) -> NmapTestToolView:
+        """覆寫：回傳 NmapTestToolView"""
+        return NmapTestToolView(config)
+
+    def _get_tool_name(self) -> str:
+        return "nmap"
+
+    def _get_screenshot_title(self, timestamp: str) -> str:
+        ip = self.view.ip_input.text() if hasattr(self.view, "ip_input") else ""
+        return f"Nmap 掃描結果 - {ip} ({timestamp})"
+
+    def _get_log_header(self) -> str:
+        return "# Nmap 掃描紀錄\n"
+
+    def _needs_root(self, command: str) -> bool:
+        """Nmap 的 -sS 和 -sU 需要 root 權限"""
+        return "-sS" in command or "-sU" in command
+
+    def _get_command_data_key(self) -> str:
+        return "nmap"
+
+    # 相容舊 API
+    def _run_nmap(self, command: str):
+        """相容舊 API"""
+        self._run_command(command)
+
+    def _load_nmap_data(self, data):
+        """相容舊 API"""
+        self._load_command_data(data)
+
+
+# ------------------------------------------------------------------------------
+# ToolFactory
+# ------------------------------------------------------------------------------
 
 
 class ToolFactory:
+    """工廠類別 - 根據設定建立對應的 Tool"""
+
+    # 註冊的 Tool 類別
+    _registry = {
+        "BaseTestTool": BaseTestTool,
+        "CommandTestTool": CommandTestTool,
+        "NmapTestTool": NmapTestTool,
+    }
+
+    @classmethod
+    def register(cls, name: str, tool_class):
+        """註冊新的 Tool 類別"""
+        cls._registry[name] = tool_class
+
     @staticmethod
-    def create_tool(class_name, config, result_data, target) -> BaseTestTool:
-        if class_name == "BaseTestTool":
-            return BaseTestTool(config, result_data, target)
-        return BaseTestTool(config, result_data, target)
+    def create_tool(class_name: str, config, result_data, target) -> BaseTestTool:
+        """建立 Tool 實例"""
+        tool_class = ToolFactory._registry.get(class_name, BaseTestTool)
+        return tool_class(config, result_data, target)
 
 
 # ==============================================================================
@@ -1662,6 +2376,13 @@ class SingleTargetTestWidget(QWidget):
 
         self.tool = ToolFactory.create_tool(class_name, config, self.saved_data, target)
 
+        # 如果是 NmapTestTool，設定專案路徑並綁定 Signal
+        if hasattr(self.tool, "set_project_path"):
+            self.tool.set_project_path(self.pm.current_project_path)
+
+        if hasattr(self.tool, "screenshot_taken"):
+            self.tool.screenshot_taken.connect(self._on_screenshot_taken)
+
         # Initialize UI with Scroll Area
         self._init_ui()
 
@@ -1671,41 +2392,82 @@ class SingleTargetTestWidget(QWidget):
         self.tool.status_changed.connect(self.update_combo_from_tool)
         self.pm.photo_received.connect(self.on_photo_received)
 
+    def _on_screenshot_taken(self, image_path: str, suggested_title: str):
+        """處理 NmapTestTool 發送的截圖事件，加入佐證資料"""
+        # 計算相對路徑
+        if self.pm.current_project_path:
+            rel_path = os.path.relpath(image_path, self.pm.current_project_path)
+        else:
+            rel_path = image_path
+
+        # 加入到佐證資料列表
+        self.attachment_list.add_attachment(rel_path, suggested_title, "image")
+
     def update_combo_from_tool(self, new_status):
         self.combo.setCurrentText(new_status)
 
     def _init_ui(self):
-        # 1. Main layout for the widget (will contain only the scroll area)
+        # 1. Main layout for the widget
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
         # 2. Create Scroll Area
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)  # Optional: remove border
+        scroll.setFrameShape(QFrame.NoFrame)
 
-        # 3. Create a widget to hold the actual content
+        # 3. Create content widget
         content_widget = QWidget()
-        l = QVBoxLayout(content_widget)  # Layout for the content
-        l.setContentsMargins(10, 10, 10, 10)  # Add some padding
+        content_layout = QHBoxLayout(content_widget)
+        content_layout.setContentsMargins(10, 10, 10, 10)
+        content_layout.setSpacing(15)
 
-        # --- Build Content inside 'l' ---
+        # ========== 左側區塊：基礎 UI + 佐證資料 + 判定 + 儲存 ==========
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(10)
 
         # Header
         h = QHBoxLayout()
         h.addWidget(QLabel(f"<h3>對象: {self.target}</h3>"))
         h.addWidget(QLabel(f"({self.logic})"))
         h.addStretch()
-        l.addLayout(h)
+        left_layout.addLayout(h)
 
-        # Tool Widget (Checkboxes, etc.)
-        l.addWidget(self.tool.get_widget())
+        # Tool Widget - 取得完整 widget
+        tool_widget = self.tool.get_widget()
 
-        # Attachments Group
+        # 判斷是否為 NmapTestTool (有右側客製化 UI)
+        has_custom_ui = (
+            tool_widget.layout()
+            and isinstance(tool_widget.layout(), QHBoxLayout)
+            and tool_widget.layout().count() > 1
+        )
+
+        if has_custom_ui:
+            # 取得左右兩側的 widget
+            tool_layout = tool_widget.layout()
+
+            # 先暫存右側 widget
+            right_item = tool_layout.itemAt(1)
+            right_custom_widget = right_item.widget() if right_item else None
+
+            # 取得左側基礎 UI widget
+            left_item = tool_layout.itemAt(0)
+            left_base_widget = left_item.widget() if left_item else None
+
+            if left_base_widget:
+                left_layout.addWidget(left_base_widget)
+        else:
+            # 沒有客製化 UI，直接加入完整 tool widget
+            left_layout.addWidget(tool_widget)
+            right_custom_widget = None
+
+        # Attachments Group (佐證資料)
         g_file = QGroupBox("佐證資料 (圖片/檔案)")
         v_file = QVBoxLayout()
 
-        # Buttons
         h_btn = QHBoxLayout()
         btn_pc = QPushButton("📂 加入檔案 (多選)")
         btn_pc.clicked.connect(self.upload_report_pc)
@@ -1716,16 +2478,14 @@ class SingleTargetTestWidget(QWidget):
         h_btn.addStretch()
         v_file.addLayout(h_btn)
 
-        # List Widget
         self.attachment_list = AttachmentListWidget()
-        # Ensure the list has a minimum height so it's usable even if empty
-        self.attachment_list.setMinimumHeight(200)
+        self.attachment_list.setMinimumHeight(150)
         v_file.addWidget(self.attachment_list)
 
         g_file.setLayout(v_file)
-        l.addWidget(g_file)
+        left_layout.addWidget(g_file)
 
-        # Result Group
+        # Result Group (最終判定)
         g3 = QGroupBox("最終判定")
         h3 = QHBoxLayout()
         h3.addWidget(QLabel("結果:"))
@@ -1741,19 +2501,22 @@ class SingleTargetTestWidget(QWidget):
 
         h3.addWidget(self.combo)
         g3.setLayout(h3)
-        l.addWidget(g3)
+        left_layout.addWidget(g3)
 
-        l.addStretch()  # Push everything up
-
-        # Save Button (Bottom)
+        # Save Button
         btn = QPushButton(f"儲存 ({self.target})")
         btn.setStyleSheet(
             "background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;"
         )
         btn.clicked.connect(self.on_save)
-        l.addWidget(btn)
+        left_layout.addWidget(btn)
 
-        # --- End Content Building ---
+        left_layout.addStretch()
+        content_layout.addWidget(left_widget, stretch=1)
+
+        # ========== 右側區塊：客製化 UI (Nmap 等) ==========
+        if has_custom_ui and right_custom_widget:
+            content_layout.addWidget(right_custom_widget, stretch=1)
 
         # 4. Set content widget to scroll area
         scroll.setWidget(content_widget)
@@ -3018,6 +3781,7 @@ class MainApp(BorderedMainWindow):
         dialog = QFileDialog(self, "選專案")
         dialog.setFileMode(QFileDialog.Directory)
         dialog.setOption(QFileDialog.DontUseNativeDialog, True)
+        dialog.setDirectory(DEFAULT_DESKTOP_PATH)  # 預設開啟桌面路徑
 
         if dialog.exec() == QDialog.Accepted:
             selected = dialog.selectedFiles()
