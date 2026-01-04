@@ -57,8 +57,27 @@ from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect,
     QSizeGrip,
 )
-from PySide6.QtCore import Qt, QDate, QObject, Signal, Slot, QUrl, QSize, QThread
-from PySide6.QtGui import QPixmap, QShortcut, QKeySequence, QImage, QColor, QMouseEvent
+from PySide6.QtCore import (
+    Qt,
+    QDate,
+    QObject,
+    Signal,
+    Slot,
+    QUrl,
+    QSize,
+    QThread,
+    QEvent,
+)
+from PySide6.QtGui import (
+    QPixmap,
+    QShortcut,
+    QKeySequence,
+    QImage,
+    QColor,
+    QMouseEvent,
+    QPalette,
+    QCursor,
+)
 
 
 # ==============================================================================
@@ -109,6 +128,136 @@ COLOR_TEXT_WARN = "#856404"
 
 COLOR_BTN_ACTIVE = "#2196F3"
 COLOR_BTN_HOVER = "#1976D2"
+
+# ==============================================================================
+# UI 主題與樣式設定 (淺色主題)
+# ==============================================================================
+
+# 主題配色 (僅淺色模式)
+THEME = {
+    "bg_color": "#FFFFFF",
+    "text_color": "#000000",
+    "title_bar_bg": "transparent",
+    "title_text": "#333333",
+    "border": "#CCCCCC",
+    "btn_hover": "#E0E0E0",
+    "btn_text": "#333333",
+    "shadow": "#000000",
+}
+
+
+class Styles:
+    """集中管理 UI 樣式"""
+
+    # 邏輯提示標籤
+    LOGIC_HINT = "color: #1976D2; font-weight: bold; font-size: 11pt;"
+
+    # 規範說明區
+    DESC_BOX = "background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; font-size: 11pt; padding: 5px;"
+
+    # Checkbox 指示器
+    CHECKBOX = "QCheckBox::indicator { width: 20px; height: 20px; }"
+
+    # 標籤文字
+    LABEL_NORMAL = "font-size: 11pt; line-height: 1.2;"
+    LABEL_GRAY = "color: gray; font-size: 10pt;"
+    LABEL_RED = "color: red; font-weight: bold;"
+    LABEL_TITLE = "font-weight: bold; font-size: 16pt; padding: 5px;"
+
+    # 指令輸入框 (深色終端風格)
+    INPUT_COMMAND = "font-family: monospace; background-color: #2d2d2d; color: #00ff00; padding: 5px;"
+
+    # 結果顯示區 (深色終端風格)
+    TEXT_RESULT = "font-family: monospace; background-color: #1e1e1e; color: #d4d4d4; font-size: 10pt;"
+
+    # 按鈕樣式
+    BTN_PRIMARY = (
+        "background-color: #4CAF50; color: white; font-weight: bold; padding: 8px;"
+    )
+    BTN_DANGER = "color: #d9534f; border: none; font-weight: bold;"
+    BTN_PADDING = "padding: 6px;"
+
+    # 共用 Checkbox 文字
+    CHECKBOX_SHARE = "color: blue; font-weight: bold;"
+
+    # 圖片縮圖區
+    THUMBNAIL = """
+        background-color: #f0f0f0;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    """
+
+    # 標題欄按鈕
+    TITLE_BTN = """
+        QPushButton {{
+            background-color: transparent;
+            border: none;
+            font-size: 14px;
+            color: {btn_text};
+            padding: 0px;
+        }}
+        QPushButton:hover {{
+            background-color: {btn_hover};
+        }}
+    """
+
+    TITLE_BTN_CLOSE = "QPushButton:hover { background-color: #E81123; color: white; }"
+
+    # 視窗框架
+    FRAME_NORMAL = """
+        QFrame#CentralFrame {{
+            background-color: {bg_color};
+            border: 1px solid {border};
+            border-radius: 6px;
+        }}
+    """
+
+    FRAME_MAXIMIZED = """
+        QFrame#CentralFrame {{
+            background-color: {bg_color};
+            border: 1px solid {border};
+            border-radius: 0px;
+        }}
+    """
+
+    # 內部視窗
+    INNER_WINDOW = """
+        QMainWindow {{
+            background-color: {bg_color};
+        }}
+    """
+
+    # 附件清單
+    ATTACHMENT_LIST = """
+        QListWidget {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fafafa;
+        }
+        QListWidget::item {
+            border-bottom: 1px solid #eee;
+        }
+    """
+
+    # 附件標題輸入
+    ATTACHMENT_TITLE = """
+        font-weight: bold;
+        font-size: 10pt;
+        border: none;
+        border-bottom: 1px solid #ccc;
+        padding: 2px;
+    """
+
+    # 狀態下拉選單 (依狀態變色)
+    @staticmethod
+    def combo_status(bg_color: str, text_color: str) -> str:
+        return f"background-color: {bg_color}; color: {text_color}; font-weight: bold; padding: 5px;"
+
+    # 測項按鈕 (依狀態變色)
+    @staticmethod
+    def test_button(bg_color: str, text_color: str) -> str:
+        return f"text-align: left; padding: 10px; border-radius: 6px; background-color: {bg_color}; color: {text_color};"
+
 
 # 照片視角與目標定義
 TARGET_UAV = "UAV"
@@ -424,7 +573,7 @@ class BaseTestToolView(QWidget):
             "須符合所有項目 (AND)" if self.logic == "AND" else "符合任一項目即可 (OR)"
         )
         lbl_logic = QLabel(f"判定邏輯: {logic_desc}")
-        lbl_logic.setStyleSheet("color: #1976D2; font-weight: bold; font-size: 11pt;")
+        lbl_logic.setStyleSheet(Styles.LOGIC_HINT)
         layout.addWidget(lbl_logic)
 
     def _build_narrative(self, layout: QVBoxLayout):
@@ -461,9 +610,7 @@ class BaseTestToolView(QWidget):
         self.desc_edit = QTextEdit()
         self.desc_edit.setHtml(display_html)
         self.desc_edit.setReadOnly(True)
-        self.desc_edit.setStyleSheet(
-            "background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; font-size: 11pt; padding: 5px;"
-        )
+        self.desc_edit.setStyleSheet(Styles.DESC_BOX)
         self.desc_edit.setMinimumHeight(150)
         self.desc_edit.setLineWrapMode(QTextEdit.WidgetWidth)
         self.desc_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -492,14 +639,14 @@ class BaseTestToolView(QWidget):
 
             chk = QCheckBox()
             chk.setFixedWidth(25)
-            chk.setStyleSheet("QCheckBox::indicator { width: 20px; height: 20px; }")
+            chk.setStyleSheet(Styles.CHECKBOX)
 
             content = item.get("content", item.get("id"))
             item_id = item["id"]
 
             lbl = QLabel(content)
             lbl.setWordWrap(True)
-            lbl.setStyleSheet("font-size: 11pt; line-height: 1.2;")
+            lbl.setStyleSheet(Styles.LABEL_NORMAL)
             lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
             # 綁定事件 - 發送 Signal
@@ -607,17 +754,13 @@ class CommandTestToolView(BaseTestToolView):
         # 指令顯示/編輯區
         v.addWidget(QLabel("將執行的指令 (可自訂)："))
         self.command_edit = QLineEdit()
-        self.command_edit.setStyleSheet(
-            "font-family: monospace; background-color: #2d2d2d; color: #00ff00; padding: 5px;"
-        )
+        self.command_edit.setStyleSheet(Styles.INPUT_COMMAND)
         v.addWidget(self.command_edit)
 
         # 執行按鈕
         h_btn = QHBoxLayout()
         self.btn_run = QPushButton(self._get_run_button_text())
-        self.btn_run.setStyleSheet(
-            "background-color: #4CAF50; color: white; font-weight: bold; padding: 8px;"
-        )
+        self.btn_run.setStyleSheet(Styles.BTN_PRIMARY)
         self.btn_run.clicked.connect(self._on_run_clicked)
         h_btn.addWidget(self.btn_run)
         h_btn.addStretch()
@@ -632,9 +775,7 @@ class CommandTestToolView(BaseTestToolView):
 
         self.result_text = QTextEdit()
         self.result_text.setReadOnly(True)
-        self.result_text.setStyleSheet(
-            "font-family: monospace; background-color: #1e1e1e; color: #d4d4d4; font-size: 10pt;"
-        )
+        self.result_text.setStyleSheet(Styles.TEXT_RESULT)
         self.result_text.setPlaceholderText(self._get_result_placeholder())
         v_result.addWidget(self.result_text, stretch=1)
 
@@ -642,12 +783,12 @@ class CommandTestToolView(BaseTestToolView):
         h_actions = QHBoxLayout()
 
         self.btn_screenshot = QPushButton("📷 擷取截圖加入佐證")
-        self.btn_screenshot.setStyleSheet("padding: 6px;")
+        self.btn_screenshot.setStyleSheet(Styles.BTN_PADDING)
         self.btn_screenshot.clicked.connect(lambda: self.screenshot_requested.emit())
         h_actions.addWidget(self.btn_screenshot)
 
         self.btn_save_log = QPushButton("💾 儲存 Log 紀錄")
-        self.btn_save_log.setStyleSheet("padding: 6px;")
+        self.btn_save_log.setStyleSheet(Styles.BTN_PADDING)
         self.btn_save_log.clicked.connect(lambda: self.save_log_requested.emit())
         h_actions.addWidget(self.btn_save_log)
 
@@ -2241,9 +2382,8 @@ class AttachmentItemWidget(QWidget):
             int(self.row_height * 1.3)
         )  # 寬度隨高度連動，保持約 4:3 比例的佔位
         self.lbl_icon.setAlignment(Qt.AlignCenter)
-        self.lbl_icon.setStyleSheet(
-            "border: 1px solid #eee; background-color: #f9f9f9; border-radius: 4px;"
-        )
+        self.lbl_icon.setAlignment(Qt.AlignCenter)
+        self.lbl_icon.setStyleSheet(Styles.THUMBNAIL)
 
         if self.file_type == "image" and os.path.exists(self.file_path):
             pix = QPixmap(self.file_path)
@@ -2264,9 +2404,10 @@ class AttachmentItemWidget(QWidget):
         # 標題
         self.edit_title = QLineEdit(title)
         self.edit_title.setPlaceholderText("請輸入說明...")
-        self.edit_title.setStyleSheet(
-            "border: 1px solid #ccc; border-radius: 3px; padding: 2px;"
-        )
+        # 標題
+        self.edit_title = QLineEdit(title)
+        self.edit_title.setPlaceholderText("請輸入說明...")
+        self.edit_title.setStyleSheet(Styles.ATTACHMENT_TITLE)
 
         # 檔名顯示 (自動換行 + 高度限制)
         filename = os.path.basename(self.file_path)
@@ -2288,7 +2429,7 @@ class AttachmentItemWidget(QWidget):
         btn_del = QPushButton("✕")
         btn_del.setFixedSize(30, 30)
         btn_del.setCursor(Qt.PointingHandCursor)
-        btn_del.setStyleSheet("color: #d9534f; border: none; font-weight: bold;")
+        btn_del.setStyleSheet(Styles.BTN_DANGER)
         btn_del.clicked.connect(lambda: self.on_delete.emit(self))
         layout.addWidget(btn_del)
 
@@ -2311,12 +2452,9 @@ class AttachmentListWidget(QListWidget):
         self.setSelectionMode(QListWidget.SingleSelection)
         self.setSpacing(2)
         self.setResizeMode(QListWidget.Adjust)  # 讓內容隨寬度調整
-        self.setStyleSheet(
-            """
-            QListWidget { border: 1px solid #ddd; background-color: #fff; } 
-            QListWidget::item { border-bottom: 1px solid #eee; }
-        """
-        )
+        self.setSpacing(2)
+        self.setResizeMode(QListWidget.Adjust)  # 讓內容隨寬度調整
+        self.setStyleSheet(Styles.ATTACHMENT_LIST)
 
         # [設定] 您想要的一列高度 (包含圖片和多行文字的最大高度)
         self.row_height = 60
@@ -3170,48 +3308,7 @@ class OverviewPage(QWidget):
 # ---------------------------------------------------------------------------- #
 #                                    自定義主視窗                                #
 # ---------------------------------------------------------------------------- #
-import sys
-from PySide6.QtWidgets import (
-    QApplication,
-    QMainWindow,
-    QWidget,
-    QVBoxLayout,
-    QFrame,
-    QLabel,
-    QPushButton,
-    QHBoxLayout,
-    QStatusBar,
-    QMenuBar,
-)
-from PySide6.QtCore import Qt, QPoint, QRect, QEvent
-from PySide6.QtWidgets import QGraphicsDropShadowEffect
-from PySide6.QtGui import QCursor, QColor, QPalette
-
-# =====================================================
-# 1. 定義主題配色
-# =====================================================
-THEMES = {
-    "light": {
-        "bg_color": "#FFFFFF",
-        "text_color": "#000000",
-        "title_bar_bg": "transparent",
-        "title_text": "#333333",
-        "border": "#CCCCCC",
-        "btn_hover": "#E0E0E0",
-        "btn_text": "#333333",
-        "shadow": "#000000",
-    },
-    "dark": {
-        "bg_color": "#202020",
-        "text_color": "#FFFFFF",
-        "title_bar_bg": "transparent",
-        "title_text": "#DDDDDD",
-        "border": "#444444",
-        "btn_hover": "#3D3D3D",
-        "btn_text": "#FFFFFF",
-        "shadow": "#000000",
-    },
-}
+# (import 已在檔案開頭完成，使用 THEME 變數)
 
 
 # =====================================================
@@ -3266,23 +3363,12 @@ class CustomTitleBar(QWidget):
             f"font-weight:bold; background:transparent; color: {theme['title_text']};"
         )
 
-        btn_style = f"""
-            QPushButton {{
-                border: none;
-                color: {theme['btn_text']};
-                background: transparent;
-            }}
-            QPushButton:hover {{
-                background-color: {theme['btn_hover']};
-            }}
-        """
+        btn_style = Styles.TITLE_BTN.format(**theme)
         for b in self.buttons:
             b.setStyleSheet(btn_style)
 
         # 關閉按鈕特例 (Hover 紅色)
-        self.btn_close.setStyleSheet(
-            btn_style + "QPushButton:hover { background-color: #E81123; color: white; }"
-        )
+        self.btn_close.setStyleSheet(btn_style + Styles.TITLE_BTN_CLOSE)
 
     def mousePressEvent(self, event):
         if event.button() != Qt.LeftButton:
@@ -3409,34 +3495,15 @@ class BorderedMainWindow(QMainWindow):
     #  主題與外觀邏輯
     # =========================================================
     def apply_system_theme(self):
-        palette = QApplication.palette()
-        bg_color = palette.color(QPalette.Window)
-        is_dark = bg_color.lightness() < 128
-        theme_key = "dark" if is_dark else "light"
-        self._apply_theme(THEMES[theme_key])
+        """套用淺色主題 (使用檔案開頭的 THEME 設定)"""
+        self._apply_theme(THEME)
 
     def _apply_theme(self, theme):
         # 使用 ID Selector (#CentralFrame) 避免汙染子元件
-        self.frame.setStyleSheet(
-            f"""
-            #CentralFrame {{
-                background-color: {theme['bg_color']};
-                border: 1px solid {theme['border']};
-                border-radius: 6px;
-            }}
-        """
-        )
+        self.frame.setStyleSheet(Styles.FRAME_NORMAL.format(**theme))
 
         # 設定內部視窗樣式
-        self._inner_window.setStyleSheet(
-            f"""
-            QMainWindow {{ background: transparent; }}
-            QWidget {{ color: {theme['text_color']}; }}
-            QMenuBar {{ background: transparent; color: {theme['text_color']}; }}
-            QMenuBar::item:selected {{ background: {theme['btn_hover']}; }}
-            QStatusBar {{ background: transparent; color: {theme['text_color']}; }}
-        """
-        )
+        self._inner_window.setStyleSheet(Styles.INNER_WINDOW.format(**theme))
 
         self.shadow.setColor(QColor(theme["shadow"]))
         self.title_bar.update_theme(theme)
@@ -3541,21 +3608,13 @@ class BorderedMainWindow(QMainWindow):
                 self.SHADOW_WIDTH,
             )
             # 恢復圓角
-            self.frame.setStyleSheet(
-                self.frame.styleSheet().replace(
-                    "border-radius: 0px;", "border-radius: 6px;"
-                )
-            )
+            self.frame.setStyleSheet(Styles.FRAME_NORMAL.format(**THEME))
         else:
             self.showMaximized()
             self._is_max = True
             self._container_layout.setContentsMargins(0, 0, 0, 0)
             # 移除圓角
-            self.frame.setStyleSheet(
-                self.frame.styleSheet().replace(
-                    "border-radius: 6px;", "border-radius: 0px;"
-                )
-            )
+            self.frame.setStyleSheet(Styles.FRAME_MAXIMIZED.format(**THEME))
 
 
 # ==============================================================================
@@ -4168,7 +4227,46 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     font_family = '"Microsoft JhengHei", "Segoe UI", sans-serif'
-    app.setStyleSheet(f"QWidget {{ font-family: {font_family}; font-size: 10pt; }}")
+    # Force Light Theme
+    app.setStyle("Fusion")  # Use Fusion style for consistent cross-platform look
+
+    # 建立亮色 Palette
+    palette = QPalette()
+    palette.setColor(QPalette.Window, QColor("#FFFFFF"))
+    palette.setColor(QPalette.WindowText, QColor("#000000"))
+    palette.setColor(QPalette.Base, QColor("#FFFFFF"))
+    palette.setColor(QPalette.AlternateBase, QColor("#F0F0F0"))
+    palette.setColor(QPalette.ToolTipBase, QColor("#FFFFDC"))
+    palette.setColor(QPalette.ToolTipText, QColor("#000000"))
+    palette.setColor(QPalette.Text, QColor("#000000"))
+    palette.setColor(QPalette.Button, QColor("#F0F0F0"))
+    palette.setColor(QPalette.ButtonText, QColor("#000000"))
+    palette.setColor(QPalette.BrightText, QColor("#FF0000"))
+    palette.setColor(QPalette.Link, QColor("#0000FF"))
+    palette.setColor(QPalette.Highlight, QColor("#2196F3"))
+    palette.setColor(QPalette.HighlightedText, QColor("#FFFFFF"))
+
+    app.setPalette(palette)
+
+    font_family = '"Microsoft JhengHei", "Segoe UI", sans-serif'
+    # 強制設定全域 Light Theme 樣式，避免系統配色影響
+    app.setStyleSheet(
+        f"""
+        QWidget {{ 
+            font-family: {font_family}; 
+            font-size: 10pt; 
+            color: #000000;
+        }}
+        QWidget:window {{
+            background-color: #FFFFFF;
+        }}
+        QToolTip {{ 
+            color: #000000; 
+            background-color: #FFFFDC; 
+            border: 1px solid black; 
+        }}
+    """
+    )
 
     config_mgr = ConfigManager(config_dir=CONFIG_DIR)
 
