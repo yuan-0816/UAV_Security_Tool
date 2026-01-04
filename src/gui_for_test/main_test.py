@@ -55,7 +55,7 @@ from PySide6.QtWidgets import (
     QStatusBar,
     QGroupBox,
     QGraphicsDropShadowEffect,
-    QSizeGrip
+    QSizeGrip,
 )
 from PySide6.QtCore import Qt, QDate, QObject, Signal, Slot, QUrl, QSize
 from PySide6.QtGui import QPixmap, QShortcut, QKeySequence, QImage, QColor, QMouseEvent
@@ -240,6 +240,7 @@ MOBILE_HTML_TEMPLATE = """
 </html>
 """
 
+
 # ==============================================================================
 # SECTION 2: INFRASTRUCTURE LAYER (基礎設施層)
 # ==============================================================================
@@ -374,20 +375,21 @@ class BaseTestTool(QObject):
         生成自動備註文字。
     特點：它不管存檔、不管上傳照片，它只管「測試內容本身」。
     """
+
     data_updated = Signal(dict)
-    status_changed = Signal(str) 
-    checklist_changed = Signal() 
+    status_changed = Signal(str)
+    checklist_changed = Signal()
 
     def __init__(self, config, result_data, target):
         super().__init__()
-        self.config = config        
-        self.result_data = result_data 
-        self.target = target        
+        self.config = config
+        self.result_data = result_data
+        self.target = target
         self.widget = QWidget()
-        
+
         # 內部狀態
-        self.checks = {} 
-        self.item_content_map = {} 
+        self.checks = {}
+        self.item_content_map = {}
         self.logic = self.config.get("logic", "AND").upper()
 
         # 初始化 UI 與載入資料
@@ -414,7 +416,9 @@ class BaseTestTool(QObject):
         layout.setSpacing(10)
 
         # 1. 邏輯提示
-        logic_desc = "須符合所有項目 (AND)" if self.logic == "AND" else "符合任一項目即可 (OR)"
+        logic_desc = (
+            "須符合所有項目 (AND)" if self.logic == "AND" else "符合任一項目即可 (OR)"
+        )
         lbl_logic = QLabel(f"判定邏輯: {logic_desc}")
         lbl_logic.setStyleSheet("color: #1976D2; font-weight: bold; font-size: 11pt;")
         layout.addWidget(lbl_logic)
@@ -422,16 +426,23 @@ class BaseTestTool(QObject):
         # 2. 規範敘述區
         narrative = self.config.get("narrative", {})
         checklist_data = self.config.get("checklist", [])
-        
+
         method_text = narrative.get("method", "無測試方法描述")
         criteria_text = narrative.get("criteria", "")
-        
+
         # 自動生成判定標準
         if not criteria_text and checklist_data:
-            header = "符合下列【任一】項目者為通過" if self.logic == "OR" else "符合下列【所有】項目者為通過"
-            lines = [f"({i+1}) {item.get('content', '')}" for i, item in enumerate(checklist_data)]
+            header = (
+                "符合下列【任一】項目者為通過"
+                if self.logic == "OR"
+                else "符合下列【所有】項目者為通過"
+            )
+            lines = [
+                f"({i+1}) {item.get('content', '')}"
+                for i, item in enumerate(checklist_data)
+            ]
             criteria_text = f"{header}，否則為未通過：\n" + "\n".join(lines)
-            
+
         method_html = method_text.replace("\n", "<br>")
         criteria_html = criteria_text.replace("\n", "<br>")
 
@@ -441,16 +452,18 @@ class BaseTestTool(QObject):
             f"<b style='color:#333;'>【判定標準】</b>"
             f"<div style='margin-left:10px; color:#D32F2F;'>{criteria_html}</div>"
         )
-        
+
         # 這是第一個 QTextEdit (規範說明)
         self.desc_edit = QTextEdit()
         self.desc_edit.setHtml(display_html)
-        self.desc_edit.setReadOnly(True) 
-        self.desc_edit.setStyleSheet("background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; font-size: 11pt; padding: 5px;")
+        self.desc_edit.setReadOnly(True)
+        self.desc_edit.setStyleSheet(
+            "background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; font-size: 11pt; padding: 5px;"
+        )
         self.desc_edit.setMinimumHeight(150)
         self.desc_edit.setLineWrapMode(QTextEdit.WidgetWidth)
         self.desc_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        
+
         g1 = QGroupBox("規範說明")
         v1 = QVBoxLayout()
         v1.addWidget(self.desc_edit)
@@ -461,7 +474,7 @@ class BaseTestTool(QObject):
         if checklist_data:
             checklist_widget = self._create_checklist_widget(checklist_data)
             layout.addWidget(checklist_widget)
-        
+
         # 4. 備註/觀察結果區
         g3 = QGroupBox("判定原因 / 備註")
         v3 = QVBoxLayout()
@@ -485,19 +498,19 @@ class BaseTestTool(QObject):
             row_layout.setSpacing(10)
 
             chk = QCheckBox()
-            chk.setFixedWidth(25) 
+            chk.setFixedWidth(25)
             chk.setStyleSheet("QCheckBox::indicator { width: 20px; height: 20px; }")
-            
-            content = item.get('content', item.get('id'))
-            self.item_content_map[item['id']] = content 
-            
+
+            content = item.get("content", item.get("id"))
+            self.item_content_map[item["id"]] = content
+
             lbl = QLabel(content)
             lbl.setWordWrap(True)
             lbl.setStyleSheet("font-size: 11pt; line-height: 1.2;")
             lbl.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
             chk.stateChanged.connect(self._on_check_changed)
-            self.checks[item['id']] = chk
+            self.checks[item["id"]] = chk
 
             row_layout.addWidget(chk, 0, Qt.AlignTop)
             row_layout.addWidget(lbl, 1)
@@ -509,7 +522,7 @@ class BaseTestTool(QObject):
     def _on_check_changed(self):
         status, fail_reason = self.calculate_result()
         self.status_changed.emit(status)
-        
+
         if status == STATUS_FAIL:
             self.user_note.setPlainText(fail_reason)
         else:
@@ -523,12 +536,12 @@ class BaseTestTool(QObject):
 
         criteria_res = {k: c.isChecked() for k, c in self.checks.items()}
         values = list(criteria_res.values())
-        
+
         is_pass = False
         if self.logic == "OR":
             is_pass = any(values)
         else:
-            is_pass = all(values) 
+            is_pass = all(values)
 
         status = STATUS_PASS if is_pass else STATUS_FAIL
         fail_reason = ""
@@ -540,7 +553,9 @@ class BaseTestTool(QObject):
                     if not checked:
                         fail_list.append(self.item_content_map.get(cid, cid))
                 if fail_list:
-                    fail_reason = "未通過，原因如下：\n" + "\n".join(f"- 未符合：{r}" for r in fail_list)
+                    fail_reason = "未通過，原因如下：\n" + "\n".join(
+                        f"- 未符合：{r}" for r in fail_list
+                    )
             elif self.logic == "OR":
                 fail_reason = "未通過，原因：上述所有項目皆未符合。"
 
@@ -552,23 +567,22 @@ class BaseTestTool(QObject):
         return {
             "criteria": criteria_res,
             "description": self.user_note.toPlainText(),
-            "auto_suggest_result": status
+            "auto_suggest_result": status,
         }
 
     def load_data(self, data):
         saved_criteria = data.get("criteria", {})
-        
+
         # 1. 回填 Checkbox (暫停訊號)
         for cid, chk in self.checks.items():
             if cid in saved_criteria:
                 chk.blockSignals(True)
                 chk.setChecked(saved_criteria[cid])
                 chk.blockSignals(False)
-        
+
         # 2. 回填文字
         self.user_note.setPlainText(data.get("description", ""))
 
-    
 
 class ToolFactory:
     @staticmethod
@@ -609,7 +623,9 @@ class ConfigManager:
                         if "standard_name" in data:
                             display_name = data["standard_name"]
                         elif "standard_version" in data:
-                            display_name = f"規範版本 {data['standard_version']} ({filename})"
+                            display_name = (
+                                f"規範版本 {data['standard_version']} ({filename})"
+                            )
                 except Exception as e:
                     display_name = f"{filename} (讀取錯誤)"
                 configs.append({"name": display_name, "path": full_path})
@@ -650,16 +666,16 @@ class ConfigManager:
                 except:
                     return None
         return None
-    
+
     def get_latest_config(self) -> Optional[Dict]:
         """取得列表中的第一個（最新）規範設定"""
         configs = self.list_available_configs()
         if configs:
             try:
-                return self.load_config(configs[0]['path'])
+                return self.load_config(configs[0]["path"])
             except:
                 return None
-        return None    
+        return None
 
 
 class ProjectManager(QObject):
@@ -792,14 +808,16 @@ class ProjectManager(QObject):
                     for target in TARGETS:
                         if target in old_entry:
                             new_entry[target] = {}
-                            new_entry[target]["attachments"] = old_entry[target].get("attachments", [])
+                            new_entry[target]["attachments"] = old_entry[target].get(
+                                "attachments", []
+                            )
                             new_entry[target]["result"] = STATUS_UNCHECKED
                             new_entry[target]["criteria_version_snapshot"] = new_ver
-                    
+
                     # 複製 Meta
                     if "__meta__" in old_entry:
                         new_entry["__meta__"] = old_entry["__meta__"].copy()
-                        
+
                     new_tests_data[uid] = new_entry
 
         self.project_data["standard_name"] = new_config.get("standard_name")
@@ -877,7 +895,10 @@ class ProjectManager(QObject):
         for sec in self.std_config.get("test_standards", []):
             for item in sec["items"]:
                 # 只要 id 相符 或 uid 相符，就回傳該章節 ID
-                if item.get("id") == item_identifier or item.get("uid") == item_identifier:
+                if (
+                    item.get("id") == item_identifier
+                    or item.get("uid") == item_identifier
+                ):
                     return str(sec["section_id"])
         return ""
 
@@ -950,8 +971,9 @@ class ProjectManager(QObject):
         }
         return self._init_folder_and_save(final_path)
 
-
-    def fork_project_to_new_version(self, new_project_name, new_config, migration_report) -> Tuple[bool, str]:
+    def fork_project_to_new_version(
+        self, new_project_name, new_config, migration_report
+    ) -> Tuple[bool, str]:
         """
         另存新檔並升級規範版本：
         1. 建立新資料夾。
@@ -965,13 +987,13 @@ class ProjectManager(QObject):
         # 假設新專案建立在原專案的「同層目錄」
         parent_dir = os.path.dirname(self.current_project_path)
         new_project_path = os.path.join(parent_dir, new_project_name)
-        
+
         if os.path.exists(new_project_path):
             return False, "目標資料夾已存在，請更換名稱。"
-        
+
         try:
             os.makedirs(new_project_path)
-            
+
             # 2. 複製資源資料夾 (images, reports)
             for folder in [DIR_IMAGES, DIR_REPORTS]:
                 src = os.path.join(self.current_project_path, folder)
@@ -979,24 +1001,24 @@ class ProjectManager(QObject):
                 if os.path.exists(src):
                     shutil.copytree(src, dst)
                 else:
-                    os.makedirs(dst) # 若原專案沒有，新專案也要建空的
-            
+                    os.makedirs(dst)  # 若原專案沒有，新專案也要建空的
+
             # 3. 準備新的專案資料 (基於 migration_report)
             old_data = self.project_data
             new_data = {
                 "standard_version": new_config.get("standard_version"),
                 "standard_name": new_config.get("standard_name"),
                 "info": old_data.get("info", {}).copy(),
-                "tests": {}
+                "tests": {},
             }
-            
+
             # 更新專案名稱
             new_data["info"]["project_name"] = new_project_name
-            
+
             # 處理測項資料遷移
             old_tests = old_data.get("tests", {})
             new_tests = {}
-            
+
             # 建立 UID -> New Item 的對照，方便取用新版資訊
             uid_to_new_item = {}
             for sec in new_config.get("test_standards", []):
@@ -1007,41 +1029,47 @@ class ProjectManager(QObject):
             for row in migration_report:
                 uid = row["uid"]
                 status = row["status"]
-                
+
                 if status == "REMOVE":
-                    continue # 移除的就不帶過去了
-                
+                    continue  # 移除的就不帶過去了
+
                 if status == "NEW":
-                    new_tests[uid] = {} # 新增的初始化為空
-                
+                    new_tests[uid] = {}  # 新增的初始化為空
+
                 elif status == "MATCH":
                     # 完全沿用
                     if uid in old_tests:
                         new_tests[uid] = old_tests[uid].copy()
-                        
+
                 elif status == "RESET":
                     # 版本變更，重置結果但保留照片連結
                     if uid in old_tests:
                         old_entry = old_tests[uid]
                         new_entry = {}
-                        
+
                         # 取得該項目在新規範的版本號
-                        new_ver = uid_to_new_item[uid].get("criteria_version", "unknown")
-                        
-                        for target in TARGETS: # UAV, GCS
+                        new_ver = uid_to_new_item[uid].get(
+                            "criteria_version", "unknown"
+                        )
+
+                        for target in TARGETS:  # UAV, GCS
                             if target in old_entry:
                                 new_entry[target] = {}
                                 # 保留照片路徑
                                 if "attachments" in old_entry[target]:
-                                    new_entry[target]["attachments"] = old_entry[target].get("attachments", [])
+                                    new_entry[target]["attachments"] = old_entry[
+                                        target
+                                    ].get("attachments", [])
                                 # 重置結果
                                 new_entry[target]["result"] = STATUS_UNCHECKED
                                 # 更新快照版本
                                 new_entry[target]["criteria_version_snapshot"] = new_ver
                                 # 添加備註
                                 old_desc = old_entry[target].get("description", "")
-                                new_entry[target]["description"] = f"[系統] 因規範版本變更 ({old_entry[target].get('criteria_version_snapshot')} -> {new_ver})，請重新判定。\n{old_desc}"
-                        
+                                new_entry[target][
+                                    "description"
+                                ] = f"[系統] 因規範版本變更 ({old_entry[target].get('criteria_version_snapshot')} -> {new_ver})，請重新判定。\n{old_desc}"
+
                         new_tests[uid] = new_entry
                         # 別忘了複製 Meta
                         if "__meta__" in old_entry:
@@ -1053,7 +1081,7 @@ class ProjectManager(QObject):
             new_json_path = os.path.join(new_project_path, self.settings_filename)
             with open(new_json_path, "w", encoding="utf-8") as f:
                 json.dump(new_data, f, ensure_ascii=False, indent=4)
-                
+
             return True, new_project_path
 
         except Exception as e:
@@ -1131,15 +1159,15 @@ class ProjectManager(QObject):
             return False, "請先開啟主專案"
         if self.get_current_project_type() != PROJECT_TYPE_FULL:
             return False, "非完整專案不可合併"
-            
+
         source_json_path = os.path.join(source_folder, self.settings_filename)
         if not os.path.exists(source_json_path):
             return False, "來源無效 (找不到 project_settings.json)"
-            
+
         try:
             with open(source_json_path, "r", encoding="utf-8") as f:
                 source_data = json.load(f)
-            
+
             # 1. 檢查類型
             if source_data.get("info", {}).get("project_type") != PROJECT_TYPE_ADHOC:
                 return False, "只能合併 Ad-Hoc 類型的專案"
@@ -1147,12 +1175,15 @@ class ProjectManager(QObject):
             # 2. [Modified] 嚴格檢查規範版本 (Standard Name)
             src_std = source_data.get("standard_name", "")
             curr_std = self.project_data.get("standard_name", "")
-            
+
             if src_std != curr_std:
-                return False, f"規範版本不符，無法合併！\n\n主專案規範: {curr_std}\n來源檔規範: {src_std}\n\n(各別檢測模式的結果必須與主專案規範完全一致才可合併)"
+                return (
+                    False,
+                    f"規範版本不符，無法合併！\n\n主專案規範: {curr_std}\n來源檔規範: {src_std}\n\n(各別檢測模式的結果必須與主專案規範完全一致才可合併)",
+                )
 
             # --- 以下為原本的合併邏輯 (複製檔案與數據) ---
-            
+
             # 3. 複製檔案
             for sub in [DIR_IMAGES, DIR_REPORTS]:
                 src_sub_dir = os.path.join(source_folder, sub)
@@ -1161,7 +1192,7 @@ class ProjectManager(QObject):
                 dest_sub_dir = os.path.join(self.current_project_path, sub)
                 if not os.path.exists(dest_sub_dir):
                     os.makedirs(dest_sub_dir)
-                
+
                 for filename in os.listdir(src_sub_dir):
                     s_file = os.path.join(src_sub_dir, filename)
                     d_file = os.path.join(dest_sub_dir, filename)
@@ -1174,7 +1205,7 @@ class ProjectManager(QObject):
             source_tests = source_data.get("tests", {})
             current_tests = self.project_data.get("tests", {})
             merged_count = 0
-            
+
             for test_id, targets_data in source_tests.items():
                 if test_id not in current_tests:
                     current_tests[test_id] = {}
@@ -1182,14 +1213,14 @@ class ProjectManager(QObject):
                     # 直接覆寫，因為已確認規範一致
                     current_tests[test_id][target] = result_data
                     merged_count += 1
-            
+
             self.save_all()
             self.data_changed.emit()
             return True, f"成功合併 {merged_count} 筆測項資料"
-            
+
         except Exception as e:
             return False, f"合併失敗: {str(e)}"
-        
+
     def update_info(self, new_info):
         if not self.current_project_path:
             return False
@@ -1214,18 +1245,19 @@ class ProjectManager(QObject):
 
     def update_adhoc_items(self, new_whitelist, removed_items):
         """[New] 更新 Ad-Hoc 白名單，並刪除被移除項目的資料"""
-        if not self.current_project_path: return
+        if not self.current_project_path:
+            return
 
         # 1. 更新 Info
         self.project_data.setdefault("info", {})["target_items"] = new_whitelist
-        
+
         # 2. 刪除資料
         tests_data = self.project_data.get("tests", {})
         for uid in removed_items:
             if uid in tests_data:
                 del tests_data[uid]
                 print(f"Deleted data for: {uid}")
-        
+
         self.save_all()
         self.data_changed.emit()
 
@@ -1241,14 +1273,14 @@ class ProjectManager(QObject):
             with open(temp_path, "w", encoding="utf-8") as f:
                 json.dump(self.project_data, f, ensure_ascii=False, indent=4)
                 f.flush()
-                os.fsync(f.fileno()) # 強制寫入磁碟
-            
+                os.fsync(f.fileno())  # 強制寫入磁碟
+
             # 2. 原子寫入
             if os.path.exists(path):
                 os.replace(temp_path, path)
             else:
                 os.rename(temp_path, path)
-                
+
             return True, "Saved"
         except Exception as e:
             if os.path.exists(temp_path):
@@ -1432,10 +1464,12 @@ class MigrationReportDialog(QDialog):
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
 
+
 class AspectLabel(QLabel):
     """
     自動根據當前高度縮放圖片，保持比例
     """
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setScaledContents(False)
@@ -1456,35 +1490,32 @@ class AspectLabel(QLabel):
             # 取得當前元件的實際高度 (由 Layout 決定)
             h = self.height()
             if h > 0:
-                scaled = self._pixmap.scaledToHeight(
-                    h, 
-                    Qt.SmoothTransformation
-                )
+                scaled = self._pixmap.scaledToHeight(h, Qt.SmoothTransformation)
                 super().setPixmap(scaled)
 
 
 class AttachmentItemWidget(QWidget):
-    on_delete = Signal(QWidget) 
+    on_delete = Signal(QWidget)
 
     def __init__(self, file_path, title="", file_type="image", row_height=100):
         super().__init__()
         self.file_path = file_path
         self.file_type = file_type
-        self.row_height = row_height # 儲存高度設定
-        
+        self.row_height = row_height  # 儲存高度設定
+
         # [關鍵 1] 強制設定整列的高度 (包含 padding)
         self.setFixedHeight(self.row_height)
-        
+
         self._init_ui(title)
 
     def _init_ui(self, title):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5) # 邊距縮小一點以容納更多內容
+        layout.setContentsMargins(5, 5, 5, 5)  # 邊距縮小一點以容納更多內容
         layout.setSpacing(10)
 
         # --- 1. 拖曳手柄 ---
-        lbl_handle = QLabel("☰") 
-        lbl_handle.setStyleSheet("color: #aaa; font-size: 16pt;") 
+        lbl_handle = QLabel("☰")
+        lbl_handle.setStyleSheet("color: #aaa; font-size: 16pt;")
         lbl_handle.setCursor(Qt.SizeAllCursor)
         lbl_handle.setFixedWidth(25)
         lbl_handle.setAlignment(Qt.AlignCenter)
@@ -1492,10 +1523,14 @@ class AttachmentItemWidget(QWidget):
 
         # --- 2. 圖片 (AspectLabel) ---
         self.lbl_icon = AspectLabel()
-        self.lbl_icon.setFixedWidth(int(self.row_height * 1.3)) # 寬度隨高度連動，保持約 4:3 比例的佔位
+        self.lbl_icon.setFixedWidth(
+            int(self.row_height * 1.3)
+        )  # 寬度隨高度連動，保持約 4:3 比例的佔位
         self.lbl_icon.setAlignment(Qt.AlignCenter)
-        self.lbl_icon.setStyleSheet("border: 1px solid #eee; background-color: #f9f9f9; border-radius: 4px;")
-        
+        self.lbl_icon.setStyleSheet(
+            "border: 1px solid #eee; background-color: #f9f9f9; border-radius: 4px;"
+        )
+
         if self.file_type == "image" and os.path.exists(self.file_path):
             pix = QPixmap(self.file_path)
             if not pix.isNull():
@@ -1504,33 +1539,35 @@ class AttachmentItemWidget(QWidget):
                 self.lbl_icon.setText("Error")
         else:
             self.lbl_icon.setText("FILE")
-            
+
         layout.addWidget(self.lbl_icon)
 
         # --- 3. 資訊區 ---
         v_info = QVBoxLayout()
         v_info.setSpacing(2)
-        v_info.setContentsMargins(0, 5, 0, 5) # 上下留點空間
-        
+        v_info.setContentsMargins(0, 5, 0, 5)  # 上下留點空間
+
         # 標題
         self.edit_title = QLineEdit(title)
         self.edit_title.setPlaceholderText("請輸入說明...")
-        self.edit_title.setStyleSheet("border: 1px solid #ccc; border-radius: 3px; padding: 2px;")
-        
+        self.edit_title.setStyleSheet(
+            "border: 1px solid #ccc; border-radius: 3px; padding: 2px;"
+        )
+
         # 檔名顯示 (自動換行 + 高度限制)
         filename = os.path.basename(self.file_path)
         self.lbl_filename = QLabel(filename)
         self.lbl_filename.setStyleSheet("color: #555; font-size: 9pt;")
-        self.lbl_filename.setWordWrap(True) 
-        self.lbl_filename.setAlignment(Qt.AlignTop | Qt.AlignLeft) # 文字靠上對齊
-        
+        self.lbl_filename.setWordWrap(True)
+        self.lbl_filename.setAlignment(Qt.AlignTop | Qt.AlignLeft)  # 文字靠上對齊
+
         # [關鍵 2] 設定 Vertical Policy 為 Ignored
         # 這告訴 Layout：如果空間不夠顯示全部文字，就顯示多少算多少，不要撐大 Widget
         self.lbl_filename.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Ignored)
 
         v_info.addWidget(self.edit_title)
-        v_info.addWidget(self.lbl_filename, 1) # Stretch=1，讓文字區佔用剩餘垂直空間
-        
+        v_info.addWidget(self.lbl_filename, 1)  # Stretch=1，讓文字區佔用剩餘垂直空間
+
         layout.addLayout(v_info, 1)
 
         # --- 4. 刪除按鈕 ---
@@ -1545,40 +1582,45 @@ class AttachmentItemWidget(QWidget):
         return {
             "type": self.file_type,
             "path": self.file_path,
-            "title": self.edit_title.text()
+            "title": self.edit_title.text(),
         }
-    
-    
+
+
 class AttachmentListWidget(QListWidget):
     """
     支援拖曳排序且高度自適應的列表元件
     """
+
     def __init__(self):
         super().__init__()
         self.setDragDropMode(QListWidget.InternalMove)
         self.setSelectionMode(QListWidget.SingleSelection)
         self.setSpacing(2)
-        self.setResizeMode(QListWidget.Adjust) # 讓內容隨寬度調整
-        self.setStyleSheet("""
+        self.setResizeMode(QListWidget.Adjust)  # 讓內容隨寬度調整
+        self.setStyleSheet(
+            """
             QListWidget { border: 1px solid #ddd; background-color: #fff; } 
             QListWidget::item { border-bottom: 1px solid #eee; }
-        """)
-        
+        """
+        )
+
         # [設定] 您想要的一列高度 (包含圖片和多行文字的最大高度)
         self.row_height = 60
 
     def add_attachment(self, file_path, title="", file_type="image"):
         item = QListWidgetItem(self)
-        
+
         # 建立 Widget，傳入高度限制
-        widget = AttachmentItemWidget(file_path, title, file_type, row_height=self.row_height)
-        
+        widget = AttachmentItemWidget(
+            file_path, title, file_type, row_height=self.row_height
+        )
+
         self.setItemWidget(item, widget)
-        
+
         # [關鍵 3] 設定 Item 的 SizeHint 與 Widget 高度一致
         # 這樣 QListWidget 才知道要為這一列保留多少空間
         item.setSizeHint(QSize(widget.sizeHint().width(), self.row_height))
-        
+
         widget.on_delete.connect(self.remove_attachment_row)
 
     def remove_attachment_row(self, widget):
@@ -1597,31 +1639,32 @@ class AttachmentListWidget(QListWidget):
                 results.append(widget.get_data())
         return results
 
+
 class SingleTargetTestWidget(QWidget):
     def __init__(self, target, config, pm, save_cb=None):
         super().__init__()
         self.target = target
         self.config = config
         self.pm = pm
-        self.item_uid = config.get('uid', config.get('id'))
+        self.item_uid = config.get("uid", config.get("id"))
         self.save_cb = save_cb
         self.logic = config.get("logic", "AND").upper()
-        
+
         handler_cfg = config.get("handler", {})
         class_name = handler_cfg.get("class_name", "BaseTestTool")
-        
+
         # Read project data
         item_data = self.pm.project_data.get("tests", {}).get(self.item_uid, {})
         target_key = self.target
         if self.target == "Shared":
             target_key = self.config.get("targets", [TARGET_GCS])[0]
         self.saved_data = item_data.get(target_key, {})
-        
+
         self.tool = ToolFactory.create_tool(class_name, config, self.saved_data, target)
-        
+
         # Initialize UI with Scroll Area
         self._init_ui()
-        
+
         # Load saved attachments
         self._load_attachments()
 
@@ -1635,33 +1678,33 @@ class SingleTargetTestWidget(QWidget):
         # 1. Main layout for the widget (will contain only the scroll area)
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         # 2. Create Scroll Area
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame) # Optional: remove border
-        
+        scroll.setFrameShape(QFrame.NoFrame)  # Optional: remove border
+
         # 3. Create a widget to hold the actual content
         content_widget = QWidget()
-        l = QVBoxLayout(content_widget) # Layout for the content
-        l.setContentsMargins(10, 10, 10, 10) # Add some padding
-        
+        l = QVBoxLayout(content_widget)  # Layout for the content
+        l.setContentsMargins(10, 10, 10, 10)  # Add some padding
+
         # --- Build Content inside 'l' ---
-        
+
         # Header
         h = QHBoxLayout()
         h.addWidget(QLabel(f"<h3>對象: {self.target}</h3>"))
         h.addWidget(QLabel(f"({self.logic})"))
         h.addStretch()
         l.addLayout(h)
-        
+
         # Tool Widget (Checkboxes, etc.)
         l.addWidget(self.tool.get_widget())
-        
+
         # Attachments Group
         g_file = QGroupBox("佐證資料 (圖片/檔案)")
         v_file = QVBoxLayout()
-        
+
         # Buttons
         h_btn = QHBoxLayout()
         btn_pc = QPushButton("📂 加入檔案 (多選)")
@@ -1672,16 +1715,16 @@ class SingleTargetTestWidget(QWidget):
         h_btn.addWidget(btn_mobile)
         h_btn.addStretch()
         v_file.addLayout(h_btn)
-        
+
         # List Widget
         self.attachment_list = AttachmentListWidget()
         # Ensure the list has a minimum height so it's usable even if empty
-        self.attachment_list.setMinimumHeight(200) 
+        self.attachment_list.setMinimumHeight(200)
         v_file.addWidget(self.attachment_list)
-        
+
         g_file.setLayout(v_file)
         l.addWidget(g_file)
-        
+
         # Result Group
         g3 = QGroupBox("最終判定")
         h3 = QHBoxLayout()
@@ -1689,21 +1732,24 @@ class SingleTargetTestWidget(QWidget):
         self.combo = QComboBox()
         self.combo.addItems([STATUS_UNCHECKED, STATUS_PASS, STATUS_FAIL, STATUS_NA])
         self.combo.currentTextChanged.connect(self.update_color)
-        
+
         saved_res = self.saved_data.get("result", STATUS_UNCHECKED)
         idx = self.combo.findText(saved_res)
-        if idx >= 0: self.combo.setCurrentIndex(idx)
+        if idx >= 0:
+            self.combo.setCurrentIndex(idx)
         self.update_color(saved_res)
-        
+
         h3.addWidget(self.combo)
         g3.setLayout(h3)
         l.addWidget(g3)
-        
-        l.addStretch() # Push everything up
-        
+
+        l.addStretch()  # Push everything up
+
         # Save Button (Bottom)
         btn = QPushButton(f"儲存 ({self.target})")
-        btn.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;")
+        btn.setStyleSheet(
+            "background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;"
+        )
         btn.clicked.connect(self.on_save)
         l.addWidget(btn)
 
@@ -1711,42 +1757,53 @@ class SingleTargetTestWidget(QWidget):
 
         # 4. Set content widget to scroll area
         scroll.setWidget(content_widget)
-        
+
         # 5. Add scroll area to main layout
         main_layout.addWidget(scroll)
 
     def _load_attachments(self):
         """Load attachments from saved data into the list widget."""
         attachments = self.saved_data.get("attachments", [])
-        
+
         for item in attachments:
             rel_path = item["path"]
             full_path = rel_path
-            
+
             if not os.path.isabs(rel_path) and self.pm.current_project_path:
                 full_path = os.path.join(self.pm.current_project_path, rel_path)
-            
-            self.attachment_list.add_attachment(full_path, item.get("title", ""), item.get("type", "image"))
+
+            self.attachment_list.add_attachment(
+                full_path, item.get("title", ""), item.get("type", "image")
+            )
 
     def upload_report_pc(self):
-        if not self.pm.current_project_path: return
-        
-        files, _ = QFileDialog.getOpenFileNames(self, "選擇檔案", "", "Images (*.jpg *.png *.jpeg);;Files (*.pdf *.txt)")
-        
+        if not self.pm.current_project_path:
+            return
+
+        files, _ = QFileDialog.getOpenFileNames(
+            self, "選擇檔案", "", "Images (*.jpg *.png *.jpeg);;Files (*.pdf *.txt)"
+        )
+
         if files:
             for f_path in files:
                 rel_path = self.pm.import_file(f_path, DIR_REPORTS)
                 if rel_path:
                     ext = os.path.splitext(f_path)[1].lower()
-                    ftype = "image" if ext in ['.jpg', '.jpeg', '.png', '.bmp'] else "file"
-                    full_display_path = os.path.join(self.pm.current_project_path, rel_path)
+                    ftype = (
+                        "image" if ext in [".jpg", ".jpeg", ".png", ".bmp"] else "file"
+                    )
+                    full_display_path = os.path.join(
+                        self.pm.current_project_path, rel_path
+                    )
                     self.attachment_list.add_attachment(full_display_path, "", ftype)
 
     def upload_report_mobile(self):
-        if not self.pm.current_project_path: return
+        if not self.pm.current_project_path:
+            return
         title = f"{self.item_uid} 佐證 ({self.target})"
         url = self.pm.generate_mobile_link(self.item_uid, title, is_report=False)
-        if url: QRCodeDialog(self, self.pm, url, title).exec()
+        if url:
+            QRCodeDialog(self, self.pm, url, title).exec()
 
     @Slot(str, str, str)
     def on_photo_received(self, target_id, category, path):
@@ -1762,46 +1819,57 @@ class SingleTargetTestWidget(QWidget):
             s = f"background-color: {COLOR_BG_PASS}; color: {COLOR_TEXT_PASS};"
             if not current_note or "未通過" in current_note or "不適用" in current_note:
                 self.tool.set_user_note("符合規範要求。")
-                
+
         elif STATUS_FAIL in t:
             s = f"background-color: {COLOR_BG_FAIL}; color: {COLOR_TEXT_FAIL};"
             if "符合規範" in current_note or "不適用" in current_note:
                 _, fail_reason = self.tool.calculate_result()
-                self.tool.set_user_note(fail_reason if fail_reason else "未通過，原因：")
+                self.tool.set_user_note(
+                    fail_reason if fail_reason else "未通過，原因："
+                )
 
         elif STATUS_NA in t:
             s = f"background-color: {COLOR_BG_NA};"
-            if not current_note or "符合規範" in current_note or "未通過" in current_note:
+            if (
+                not current_note
+                or "符合規範" in current_note
+                or "未通過" in current_note
+            ):
                 self.tool.set_user_note("不適用，原因如下：\n")
-                
+
         self.combo.setStyleSheet(s)
 
     def on_save(self):
-        if not self.pm.current_project_path: return
-        
+        if not self.pm.current_project_path:
+            return
+
         tool_data = self.tool.get_result()
         final_data = tool_data.copy()
-        
+
         if "auto_suggest_result" in final_data:
             del final_data["auto_suggest_result"]
-            
+
         # 1. 收集目前的附件列表
         attachments = self.attachment_list.get_all_attachments()
-        
+
         # 2. 路徑正規化
         for att in attachments:
             full_path = att["path"]
-            if os.path.isabs(full_path) and full_path.startswith(self.pm.current_project_path):
-                 rel = os.path.relpath(full_path, self.pm.current_project_path)
-                 att["path"] = rel.replace("\\", "/") 
+            if os.path.isabs(full_path) and full_path.startswith(
+                self.pm.current_project_path
+            ):
+                rel = os.path.relpath(full_path, self.pm.current_project_path)
+                att["path"] = rel.replace("\\", "/")
 
         # 3. 寫入資料 (僅使用 attachments)
-        final_data.update({
-            "result": self.combo.currentText(),
-            "attachments": attachments, 
-            "criteria_version_snapshot": self.config.get("criteria_version")
-        })
-        
+        final_data.update(
+            {
+                "result": self.combo.currentText(),
+                "attachments": attachments,
+                "criteria_version_snapshot": self.config.get("criteria_version"),
+            }
+        )
+
         if self.save_cb:
             self.save_cb(final_data)
         else:
@@ -1815,6 +1883,7 @@ class UniversalTestPage(QWidget):
     職責：因為一個測項可能同時要測 UAV 和 GCS，這個頁面負責管理 Tab 分頁（或分割畫面）。
     內容：它裡面包含了 1 個或多個 SingleTargetTestWidget。
     """
+
     def __init__(self, config, pm):
         super().__init__()
         self.config = config
@@ -1990,12 +2059,13 @@ class ProjectFormController:
     專案資訊填寫表單控制器。
     [Update] 支援根據 test_standards 動態生成 test_scope 選項。
     """
+
     def __init__(self, parent_window, full_config, existing_data=None):
-        self.full_config = full_config # 接收完整的 config 以讀取 test_standards
+        self.full_config = full_config  # 接收完整的 config 以讀取 test_standards
         self.meta_schema = full_config.get("project_meta_schema", [])
         self.existing_data = existing_data
         self.is_edit_mode = existing_data is not None
-        
+
         self.dialog = QDialog(parent_window)
         self.dialog.setWindowTitle("編輯專案" if self.is_edit_mode else "新建專案")
         self.dialog.resize(500, 600)
@@ -2006,18 +2076,19 @@ class ProjectFormController:
         layout = QVBoxLayout(self.dialog)
         form = QFormLayout()
         desktop = DEFAULT_DESKTOP_PATH
-        
+
         for field in self.meta_schema:
-            key = field['key']
-            f_type = field['type']
-            label = field['label']
-            
-            if f_type == 'hidden': continue
-            
+            key = field["key"]
+            f_type = field["type"]
+            label = field["label"]
+
+            if f_type == "hidden":
+                continue
+
             widget = None
-            
+
             # --- 1. 一般文字輸入 ---
-            if f_type == 'text':
+            if f_type == "text":
                 widget = QLineEdit()
                 if self.is_edit_mode and key in self.existing_data:
                     widget.setText(str(self.existing_data[key]))
@@ -2025,53 +2096,61 @@ class ProjectFormController:
                     if key == "project_name":
                         widget.setReadOnly(True)
                         widget.setStyleSheet("background-color:#f0f0f0;")
-            
+
             # --- 2. 日期選擇 ---
-            elif f_type == 'date': 
+            elif f_type == "date":
                 widget = QDateEdit()
                 widget.setCalendarPopup(True)
                 widget.setDisplayFormat(DATE_FMT_QT)
-                if self.is_edit_mode and key in self.existing_data: 
-                    widget.setDate(QDate.fromString(self.existing_data[key], DATE_FMT_QT))
-                else: 
+                if self.is_edit_mode and key in self.existing_data:
+                    widget.setDate(
+                        QDate.fromString(self.existing_data[key], DATE_FMT_QT)
+                    )
+                else:
                     widget.setDate(QDate.currentDate())
-            
+
             # --- 3. 路徑選擇 ---
-            elif f_type == 'path_selector':
+            elif f_type == "path_selector":
                 widget = QWidget()
                 h = QHBoxLayout(widget)
-                h.setContentsMargins(0,0,0,0)
+                h.setContentsMargins(0, 0, 0, 0)
                 pe = QLineEdit()
                 btn = QToolButton()
                 btn.setText("...")
-                
+
                 if self.is_edit_mode:
-                    pe.setText(self.existing_data.get(key,""))
+                    pe.setText(self.existing_data.get(key, ""))
                     pe.setReadOnly(True)
                     btn.setEnabled(False)
                 else:
                     pe.setText(desktop)
                     btn.clicked.connect(lambda _, le=pe: self._browse(le))
-                
+
                 h.addWidget(pe)
                 h.addWidget(btn)
                 widget.line_edit = pe
-            
+
             # --- 4. Checkbox 群組 (動態生成邏輯) ---
-            elif f_type == 'checkbox_group':
+            elif f_type == "checkbox_group":
                 widget = QGroupBox()
                 v = QVBoxLayout(widget)
                 v.setContentsMargins(5, 5, 5, 5)
-                
+
                 # [Modified] 動態生成 test_scope 選項
                 opts = []
                 if key == "test_scope":
                     standards = self.full_config.get("test_standards", [])
                     for sec in standards:
-                        opts.append({
-                            "value": sec["section_id"], # 使用 section_id 作為 value
-                            "label": sec["section_name"] # 使用 section_name 作為 label
-                        })
+                        opts.append(
+                            {
+                                "value": sec[
+                                    "section_id"
+                                ],  # 使用 section_id 作為 value
+                                "label": sec[
+                                    "section_name"
+                                ],  # 使用 section_name 作為 label
+                            }
+                        )
                 else:
                     # 若沒有特別需求，則使用 schema 中定義的選項
                     opts = field.get("options", [])
@@ -2085,16 +2164,16 @@ class ProjectFormController:
                         if o["value"] in vals:
                             chk.setChecked(True)
                     else:
-                        chk.setChecked(False) # 新建時預設全不選
+                        chk.setChecked(False)  # 新建時預設全不選
                     v.addWidget(chk)
                     widget.checkboxes.append(chk)
 
             if widget:
                 form.addRow(label, widget)
-                self.inputs[key] = {'w': widget, 't': f_type}
-        
+                self.inputs[key] = {"w": widget, "t": f_type}
+
         layout.addLayout(form)
-        
+
         # 按鈕區
         btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         btns.accepted.connect(self.dialog.accept)
@@ -2108,22 +2187,29 @@ class ProjectFormController:
         dialog.setWindowModality(Qt.ApplicationModal)
         if dialog.exec() == QDialog.Accepted:
             files = dialog.selectedFiles()
-            if files: le.setText(files[0])
+            if files:
+                le.setText(files[0])
 
     def run(self):
-        if self.dialog.exec() == QDialog.Accepted: return self._collect()
+        if self.dialog.exec() == QDialog.Accepted:
+            return self._collect()
         return None
 
     def _collect(self):
         data = {}
         for key, inf in self.inputs.items():
-            w = inf['w']
-            t = inf['t']
-            if t == 'text': data[key] = w.text()
-            elif t == 'date': data[key] = w.date().toString(DATE_FMT_QT)
-            elif t == 'path_selector': data[key] = w.line_edit.text()
-            elif t == 'checkbox_group': data[key] = [c.property("val") for c in w.checkboxes if c.isChecked()]
+            w = inf["w"]
+            t = inf["t"]
+            if t == "text":
+                data[key] = w.text()
+            elif t == "date":
+                data[key] = w.date().toString(DATE_FMT_QT)
+            elif t == "path_selector":
+                data[key] = w.line_edit.text()
+            elif t == "checkbox_group":
+                data[key] = [c.property("val") for c in w.checkboxes if c.isChecked()]
         return data
+
 
 class OverviewPage(QWidget):
     def __init__(self, pm: ProjectManager, config):
@@ -2318,14 +2404,21 @@ class OverviewPage(QWidget):
             # )
 
 
-
 # ---------------------------------------------------------------------------- #
 #                                    自定義主視窗                                #
 # ---------------------------------------------------------------------------- #
 import sys
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout,
-    QFrame, QLabel, QPushButton, QHBoxLayout, QStatusBar, QMenuBar
+    QApplication,
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QFrame,
+    QLabel,
+    QPushButton,
+    QHBoxLayout,
+    QStatusBar,
+    QMenuBar,
 )
 from PySide6.QtCore import Qt, QPoint, QRect, QEvent
 from PySide6.QtWidgets import QGraphicsDropShadowEffect
@@ -2343,7 +2436,7 @@ THEMES = {
         "border": "#CCCCCC",
         "btn_hover": "#E0E0E0",
         "btn_text": "#333333",
-        "shadow": "#000000"
+        "shadow": "#000000",
     },
     "dark": {
         "bg_color": "#202020",
@@ -2353,9 +2446,10 @@ THEMES = {
         "border": "#444444",
         "btn_hover": "#3D3D3D",
         "btn_text": "#FFFFFF",
-        "shadow": "#000000"
-    }
+        "shadow": "#000000",
+    },
 }
+
 
 # =====================================================
 # Custom Title Bar
@@ -2372,12 +2466,12 @@ class CustomTitleBar(QWidget):
         self.title_label = QLabel("MainWindow", self)
         self.title_label.setAlignment(Qt.AlignCenter)
         self.title_label.setAttribute(Qt.WA_TransparentForMouseEvents)
-        
+
         # 按鈕 Layout
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 8, 0)
         layout.setSpacing(4)
-        
+
         # 使用 Stretch 把按鈕頂到最右邊
         layout.addStretch()
 
@@ -2404,9 +2498,11 @@ class CustomTitleBar(QWidget):
 
     def update_theme(self, theme):
         self.setStyleSheet("background-color: transparent;")
-        
-        self.title_label.setStyleSheet(f"font-weight:bold; background:transparent; color: {theme['title_text']};")
-        
+
+        self.title_label.setStyleSheet(
+            f"font-weight:bold; background:transparent; color: {theme['title_text']};"
+        )
+
         btn_style = f"""
             QPushButton {{
                 border: none;
@@ -2419,39 +2515,48 @@ class CustomTitleBar(QWidget):
         """
         for b in self.buttons:
             b.setStyleSheet(btn_style)
-        
+
         # 關閉按鈕特例 (Hover 紅色)
-        self.btn_close.setStyleSheet(btn_style + "QPushButton:hover { background-color: #E81123; color: white; }")
+        self.btn_close.setStyleSheet(
+            btn_style + "QPushButton:hover { background-color: #E81123; color: white; }"
+        )
 
     def mousePressEvent(self, event):
         if event.button() != Qt.LeftButton:
             return
-            
+
         # 檢查是否點擊在視窗頂部邊緣 (Resize 區域)
         top_resize_limit = self.parent_window.y() + self.parent_window.BORDER_WIDTH + 10
-        if event.globalPosition().y() < top_resize_limit and not self.parent_window.isMaximized():
-            event.ignore() # 讓事件傳給 Main Window 處理 Resize
+        if (
+            event.globalPosition().y() < top_resize_limit
+            and not self.parent_window.isMaximized()
+        ):
+            event.ignore()  # 讓事件傳給 Main Window 處理 Resize
             return
-            
+
         # 觸發系統移動
         if self.parent_window.windowHandle().startSystemMove():
             event.accept()
 
     def mouseDoubleClickEvent(self, event):
         top_resize_limit = self.parent_window.y() + self.parent_window.BORDER_WIDTH + 10
-        if event.button() == Qt.LeftButton and event.globalPosition().y() > top_resize_limit:
+        if (
+            event.button() == Qt.LeftButton
+            and event.globalPosition().y() > top_resize_limit
+        ):
             self.parent_window.toggle_maximize()
+
 
 # =====================================================
 # 通用無邊框視窗 (BorderedMainWindow)
 # =====================================================
 class BorderedMainWindow(QMainWindow):
-    SHADOW_WIDTH = 10 
+    SHADOW_WIDTH = 10
     BORDER_WIDTH = 6
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        
+
         # 1. 基礎設定
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Window)
         self.setAttribute(Qt.WA_TranslucentBackground)
@@ -2459,7 +2564,7 @@ class BorderedMainWindow(QMainWindow):
 
         self._is_max = False
         self._resize_dir = None
-        
+
         # 2. 建立陰影容器 (Shadow Container)
         # 這是最外層的 Widget，用來承載陰影
         self._shadow_container = QWidget()
@@ -2469,13 +2574,12 @@ class BorderedMainWindow(QMainWindow):
         # 3. 容器佈局 (預留陰影邊距)
         self._container_layout = QVBoxLayout(self._shadow_container)
         self._container_layout.setContentsMargins(
-            self.SHADOW_WIDTH, self.SHADOW_WIDTH, 
-            self.SHADOW_WIDTH, self.SHADOW_WIDTH
+            self.SHADOW_WIDTH, self.SHADOW_WIDTH, self.SHADOW_WIDTH, self.SHADOW_WIDTH
         )
-        
+
         # 4. 視覺邊框 Frame (Visible Frame)
         self.frame = QFrame()
-        self.frame.setObjectName("CentralFrame") # 關鍵：設定 ID 以避免 CSS 汙染
+        self.frame.setObjectName("CentralFrame")  # 關鍵：設定 ID 以避免 CSS 汙染
         self.frame.setMouseTracking(True)
         self._container_layout.addWidget(self.frame)
 
@@ -2499,9 +2603,9 @@ class BorderedMainWindow(QMainWindow):
         # 這是實際承載使用者內容的視窗，負責 Menu, Status, Content
         # =========================================================
         self._inner_window = QMainWindow()
-        self._inner_window.setWindowFlags(Qt.Widget) # 設為 Widget 才能嵌入
-        self._inner_window.setAttribute(Qt.WA_TranslucentBackground) # 確保圓角不被遮擋
-        
+        self._inner_window.setWindowFlags(Qt.Widget)  # 設為 Widget 才能嵌入
+        self._inner_window.setAttribute(Qt.WA_TranslucentBackground)  # 確保圓角不被遮擋
+
         self._frame_layout.addWidget(self._inner_window)
 
         # 初始化事件監聽與主題
@@ -2528,14 +2632,14 @@ class BorderedMainWindow(QMainWindow):
 
     def setStatusBar(self, status_bar):
         self._inner_window.setStatusBar(status_bar)
-    
+
     def statusBar(self):
         return self._inner_window.statusBar()
 
     def setWindowTitle(self, title):
         """同時更新系統標題與自定義標題列"""
         super().setWindowTitle(title)
-        if hasattr(self, 'title_bar'):
+        if hasattr(self, "title_bar"):
             self.title_bar.title_label.setText(title)
 
     # =========================================================
@@ -2550,24 +2654,28 @@ class BorderedMainWindow(QMainWindow):
 
     def _apply_theme(self, theme):
         # 使用 ID Selector (#CentralFrame) 避免汙染子元件
-        self.frame.setStyleSheet(f"""
+        self.frame.setStyleSheet(
+            f"""
             #CentralFrame {{
                 background-color: {theme['bg_color']};
                 border: 1px solid {theme['border']};
                 border-radius: 6px;
             }}
-        """)
-        
+        """
+        )
+
         # 設定內部視窗樣式
-        self._inner_window.setStyleSheet(f"""
+        self._inner_window.setStyleSheet(
+            f"""
             QMainWindow {{ background: transparent; }}
             QWidget {{ color: {theme['text_color']}; }}
             QMenuBar {{ background: transparent; color: {theme['text_color']}; }}
             QMenuBar::item:selected {{ background: {theme['btn_hover']}; }}
             QStatusBar {{ background: transparent; color: {theme['text_color']}; }}
-        """)
+        """
+        )
 
-        self.shadow.setColor(QColor(theme['shadow']))
+        self.shadow.setColor(QColor(theme["shadow"]))
         self.title_bar.update_theme(theme)
 
     def changeEvent(self, event):
@@ -2591,7 +2699,7 @@ class BorderedMainWindow(QMainWindow):
         if event.button() == Qt.LeftButton:
             pos = self.mapFromGlobal(event.globalPosition().toPoint())
             self._resize_dir = self._get_resize_direction(pos)
-            
+
             if self._resize_dir:
                 # 使用 startSystemResize 解決 Linux 下的座標問題
                 edges = self._convert_dir_to_edges(self._resize_dir)
@@ -2606,10 +2714,14 @@ class BorderedMainWindow(QMainWindow):
 
     def _convert_dir_to_edges(self, d):
         edges = Qt.Edges()
-        if "l" in d: edges |= Qt.LeftEdge
-        if "r" in d: edges |= Qt.RightEdge
-        if "t" in d: edges |= Qt.TopEdge
-        if "b" in d: edges |= Qt.BottomEdge
+        if "l" in d:
+            edges |= Qt.LeftEdge
+        if "r" in d:
+            edges |= Qt.RightEdge
+        if "t" in d:
+            edges |= Qt.TopEdge
+        if "b" in d:
+            edges |= Qt.BottomEdge
         return edges
 
     def _get_resize_direction(self, pos):
@@ -2620,24 +2732,36 @@ class BorderedMainWindow(QMainWindow):
         left, right = x < margin, x > w - margin
         top, bottom = y < margin, y > h - margin
 
-        if top and left: return "tl"
-        if top and right: return "tr"
-        if bottom and left: return "bl"
-        if bottom and right: return "br"
-        if left: return "l"
-        if right: return "r"
-        if top: return "t"
-        if bottom: return "b"
+        if top and left:
+            return "tl"
+        if top and right:
+            return "tr"
+        if bottom and left:
+            return "bl"
+        if bottom and right:
+            return "br"
+        if left:
+            return "l"
+        if right:
+            return "r"
+        if top:
+            return "t"
+        if bottom:
+            return "b"
         return None
 
     def _update_cursor(self, pos):
         d = self._get_resize_direction(pos)
         if d and not self._is_max:
             cursors = {
-                "l": Qt.SizeHorCursor, "r": Qt.SizeHorCursor,
-                "t": Qt.SizeVerCursor, "b": Qt.SizeVerCursor,
-                "tl": Qt.SizeFDiagCursor, "br": Qt.SizeFDiagCursor,
-                "tr": Qt.SizeBDiagCursor, "bl": Qt.SizeBDiagCursor,
+                "l": Qt.SizeHorCursor,
+                "r": Qt.SizeHorCursor,
+                "t": Qt.SizeVerCursor,
+                "b": Qt.SizeVerCursor,
+                "tl": Qt.SizeFDiagCursor,
+                "br": Qt.SizeFDiagCursor,
+                "tr": Qt.SizeBDiagCursor,
+                "bl": Qt.SizeBDiagCursor,
             }
             self.setCursor(cursors[d])
         else:
@@ -2648,50 +2772,58 @@ class BorderedMainWindow(QMainWindow):
             self.showNormal()
             self._is_max = False
             self._container_layout.setContentsMargins(
-                self.SHADOW_WIDTH, self.SHADOW_WIDTH, 
-                self.SHADOW_WIDTH, self.SHADOW_WIDTH
+                self.SHADOW_WIDTH,
+                self.SHADOW_WIDTH,
+                self.SHADOW_WIDTH,
+                self.SHADOW_WIDTH,
             )
             # 恢復圓角
-            self.frame.setStyleSheet(self.frame.styleSheet().replace("border-radius: 0px;", "border-radius: 6px;"))
+            self.frame.setStyleSheet(
+                self.frame.styleSheet().replace(
+                    "border-radius: 0px;", "border-radius: 6px;"
+                )
+            )
         else:
             self.showMaximized()
             self._is_max = True
             self._container_layout.setContentsMargins(0, 0, 0, 0)
             # 移除圓角
-            self.frame.setStyleSheet(self.frame.styleSheet().replace("border-radius: 6px;", "border-radius: 0px;"))
+            self.frame.setStyleSheet(
+                self.frame.styleSheet().replace(
+                    "border-radius: 6px;", "border-radius: 0px;"
+                )
+            )
 
 
-
-
-    
 # ==============================================================================
 # SECTION 5: MAIN APPLICATION (程式入口)
 # ==============================================================================
 
+
 class MainApp(BorderedMainWindow):
     def __init__(self, config_mgr):
-        super().__init__()      
+        super().__init__()
         self.config_mgr = config_mgr
         self.pm = ProjectManager()
         self.test_ui_elements = {}
         self.current_font_size = 10
 
         self.pm.photo_received.connect(self.on_photo_received)
-        
+
         # 1. 嘗試載入最新規範作為預設 UI 框架 (若無則為 None)
         # 注意: ConfigManager 需要有 get_latest_config() 方法，若沒有請補上，或用 list_available_configs()[0]
         self.config = self._get_initial_config()
-        
+
         # UI 初始化
         self.cw = QWidget()
         self.setCentralWidget(self.cw)
         self.main_l = QVBoxLayout(self.cw)
 
         self.setStatusBar(QStatusBar(self))
-        self.statusBar().showMessage("就緒") # 初始訊息
-        
-        self._init_menu() # 建立選單
-        
+        self.statusBar().showMessage("就緒")  # 初始訊息
+
+        self._init_menu()  # 建立選單
+
         self.tabs = QTabWidget()
         self.main_l.addWidget(self.tabs)
         self._init_zoom()
@@ -2699,10 +2831,12 @@ class MainApp(BorderedMainWindow):
         # 2. 根據預設規範建立介面，但先鎖定
         if self.config:
             self.rebuild_ui_from_config()
-            self._set_ui_locked(True) # [關鍵] 初始狀態：鎖定
+            self._set_ui_locked(True)  # [關鍵] 初始狀態：鎖定
             self.setWindowTitle("無人機資安檢測工具 (請從選單建立或開啟專案)")
         else:
-            QMessageBox.warning(self, "警告", "找不到任何規範設定檔，請檢查 configs 資料夾。")
+            QMessageBox.warning(
+                self, "警告", "找不到任何規範設定檔，請檢查 configs 資料夾。"
+            )
             self._set_ui_locked(True)
 
     def _get_initial_config(self):
@@ -2710,7 +2844,7 @@ class MainApp(BorderedMainWindow):
         configs = self.config_mgr.list_available_configs()
         if configs:
             try:
-                return self.config_mgr.load_config(configs[0]['path'])
+                return self.config_mgr.load_config(configs[0]["path"])
             except:
                 return None
         return None
@@ -2723,38 +2857,44 @@ class MainApp(BorderedMainWindow):
         """
         # 鎖定中間的分頁 (讓使用者看得到但不能點)
         self.tabs.setEnabled(not locked)
-        
+
         # 鎖定特定選單功能
         self.a_edit.setEnabled(not locked)
         self.a_merge.setEnabled(not locked)
 
-        
         # 如果是解鎖狀態，將焦點切到總覽頁
         if not locked and self.tabs.count() > 0:
             self.tabs.setCurrentIndex(0)
 
     def rebuild_ui_from_config(self):
         """根據目前的 self.config 重建介面 (Tabs & Buttons)"""
-        if not self.config: return
+        if not self.config:
+            return
 
         # 設定視窗標題
-        std_name = self.config.get("standard_name", self.config.get("standard_version", "Unknown"))
+        std_name = self.config.get(
+            "standard_name", self.config.get("standard_version", "Unknown")
+        )
         if self.pm.current_project_path:
-             proj_name = self.pm.project_data.get("info", {}).get("project_name", "未命名")
-             self.setWindowTitle(f"無人機資安檢測工具 - {proj_name} [{std_name}]")
+            proj_name = self.pm.project_data.get("info", {}).get(
+                "project_name", "未命名"
+            )
+            self.setWindowTitle(f"無人機資安檢測工具 - {proj_name} [{std_name}]")
         else:
-             self.setWindowTitle(f"無人機資安檢測工具 - {std_name}")
+            self.setWindowTitle(f"無人機資安檢測工具 - {std_name}")
 
         self.pm.set_standard_config(self.config)
-        
+
         # 清空舊介面
         self.tabs.clear()
         self.test_ui_elements = {}
-        
+
         # 1. 建立總覽頁
         self.overview = OverviewPage(self.pm, self.config)
         self.tabs.addTab(self.overview, "總覽 Overview")
-        self.tabs.currentChanged.connect(lambda i: self.overview.refresh_data() if i == 0 else None)
+        self.tabs.currentChanged.connect(
+            lambda i: self.overview.refresh_data() if i == 0 else None
+        )
         self.pm.data_changed.connect(self.refresh_ui)
 
         # 2. 建立各章節頁面
@@ -2768,12 +2908,12 @@ class MainApp(BorderedMainWindow):
             cont = QWidget()
             cv = QVBoxLayout(cont)
             scr.setWidget(cont)
-            
+
             for item in sec["items"]:
                 row = QWidget()
                 rh = QHBoxLayout(row)
                 rh.setContentsMargins(0, 5, 0, 5)
-                
+
                 # 測項按鈕
                 btn = QPushButton(f"{item['id']} {item['name']}")
                 btn.setFixedHeight(40)
@@ -2788,38 +2928,42 @@ class MainApp(BorderedMainWindow):
                 rh.addWidget(btn)
                 rh.addWidget(st_cont)
                 cv.addWidget(row)
-                
+
                 # [關鍵] 使用 UID 作為 Key，若無則 fallback 到 ID
                 uid = item.get("uid", item.get("id"))
                 self.test_ui_elements[uid] = (btn, st_l, item, row)
-            
+
             cv.addStretch()
             self.tabs.addTab(p, sec["section_id"])
-            
+
         self.update_font()
 
     def _init_menu(self):
         mb = self.menuBar()
-        
+
         # --- 檔案選單 ---
         f_menu = mb.addMenu("檔案")
         f_menu.addAction("📝 新建專案", self.on_new)
         f_menu.addAction("📂 開啟專案", self.on_open)
         f_menu.addSeparator()
-        self.a_edit = f_menu.addAction("編輯專案資訊", self.on_edit) # 初始禁用
-        
+        self.a_edit = f_menu.addAction("編輯專案資訊", self.on_edit)  # 初始禁用
+
         # [Deleted] 移除 "版本與快照" 選單
-        
+
         # --- 工具選單 ---
         t_menu = mb.addMenu("工具")
-        
+
         # [New] 另存專案為不同版本規範 (初始禁用，需開啟專案後才可用)
-        self.a_save_as_ver = t_menu.addAction("🔄 另存專案為不同版本規範", self.on_save_as_new_version)
+        self.a_save_as_ver = t_menu.addAction(
+            "🔄 另存專案為不同版本規範", self.on_save_as_new_version
+        )
         self.a_save_as_ver.setEnabled(False)
-        
+
         t_menu.addSeparator()
-        self.a_merge = t_menu.addAction("匯入各別檢測結果 (Merge Ad-Hoc)", self.on_merge) # 初始禁用
-        
+        self.a_merge = t_menu.addAction(
+            "匯入各別檢測結果 (Merge Ad-Hoc)", self.on_merge
+        )  # 初始禁用
+
     def _init_zoom(self):
         self.shortcut_zoom_in = QShortcut(QKeySequence.ZoomIn, self)
         self.shortcut_zoom_in.activated.connect(self.zoom_in)
@@ -2829,12 +2973,20 @@ class MainApp(BorderedMainWindow):
         self.shortcut_zoom_out.activated.connect(self.zoom_out)
 
     def zoom_in(self):
-        if self.current_font_size < 30: self.current_font_size += 2; self.update_font()
+        if self.current_font_size < 30:
+            self.current_font_size += 2
+            self.update_font()
+
     def zoom_out(self):
-        if self.current_font_size > 8: self.current_font_size -= 2; self.update_font()
+        if self.current_font_size > 8:
+            self.current_font_size -= 2
+            self.update_font()
+
     def update_font(self):
         font_family = '"Microsoft JhengHei", "Segoe UI", sans-serif'
-        QApplication.instance().setStyleSheet(f"QWidget {{ font-size: {self.current_font_size}pt; font-family: {font_family}; }}")
+        QApplication.instance().setStyleSheet(
+            f"QWidget {{ font-size: {self.current_font_size}pt; font-family: {font_family}; }}"
+        )
 
     # --- 功能實作 ---
 
@@ -2844,20 +2996,20 @@ class MainApp(BorderedMainWindow):
         sel_dialog = VersionSelectionDialog(self.config_mgr, self)
         if sel_dialog.exec() != QDialog.Accepted or not sel_dialog.selected_config:
             return
-        
+
         selected_config = sel_dialog.selected_config
-        
+
         # 2. 填寫資料
         c = ProjectFormController(self, selected_config)
         d = c.run()
         if d:
             # 3. 切換 UI 並建立專案
             self.config = selected_config
-            self.rebuild_ui_from_config() 
-            
+            self.rebuild_ui_from_config()
+
             ok, r = self.pm.create_project(d)
             if ok:
-                self.project_ready() # 解鎖介面
+                self.project_ready()  # 解鎖介面
             else:
                 QMessageBox.warning(self, "建立失敗", r)
 
@@ -2866,15 +3018,15 @@ class MainApp(BorderedMainWindow):
         dialog = QFileDialog(self, "選專案")
         dialog.setFileMode(QFileDialog.Directory)
         dialog.setOption(QFileDialog.DontUseNativeDialog, True)
-        
+
         if dialog.exec() == QDialog.Accepted:
             selected = dialog.selectedFiles()
             if selected:
                 folder_path = selected[0]
-                
+
                 # 1. 偷看專案使用的規範名稱
                 proj_std = self.pm.peek_project_standard(folder_path)
-                
+
                 # 2. 嘗試自動載入該規範
                 if proj_std:
                     target_config = self.config_mgr.find_config_by_name(proj_std)
@@ -2883,35 +3035,44 @@ class MainApp(BorderedMainWindow):
                         self.rebuild_ui_from_config()
                     else:
                         # 找不到對應規範，詢問是否用目前的硬開
-                        ret = QMessageBox.question(self, "規範遺失", 
-                                             f"專案使用規範：{proj_std}\n系統找不到此規範檔。\n是否嘗試使用目前載入的規範開啟？",
-                                             QMessageBox.Yes | QMessageBox.No)
-                        if ret == QMessageBox.No: return
+                        ret = QMessageBox.question(
+                            self,
+                            "規範遺失",
+                            f"專案使用規範：{proj_std}\n系統找不到此規範檔。\n是否嘗試使用目前載入的規範開啟？",
+                            QMessageBox.Yes | QMessageBox.No,
+                        )
+                        if ret == QMessageBox.No:
+                            return
                 else:
-                    QMessageBox.warning(self, "警告", "無法識別專案規範版本，將使用目前版本開啟。")
-                
+                    QMessageBox.warning(
+                        self, "警告", "無法識別專案規範版本，將使用目前版本開啟。"
+                    )
+
                 # 3. 載入資料
                 ok, m = self.pm.load_project(folder_path)
                 if ok:
-                    self.project_ready() # 解鎖介面
+                    self.project_ready()  # 解鎖介面
                 else:
                     QMessageBox.warning(self, "載入失敗", m)
 
     def on_adhoc(self):
         """[Modified] 個別檢測流程：提示 -> 選版本 -> 選項目 -> 建立 -> 鎖定功能"""
-        
+
         # 1. 提示使用者限制
-        QMessageBox.information(self, "各別檢測模式說明", 
-                                "【注意】\n\n"
-                                "各別檢測模式 (Ad-Hoc) 產生的結果，\n"
-                                "日後僅能合併至「完全相同規範版本」的完整專案中。\n\n"
-                                "請確認您選擇的規範版本與目標專案一致。")
+        QMessageBox.information(
+            self,
+            "各別檢測模式說明",
+            "【注意】\n\n"
+            "各別檢測模式 (Ad-Hoc) 產生的結果，\n"
+            "日後僅能合併至「完全相同規範版本」的完整專案中。\n\n"
+            "請確認您選擇的規範版本與目標專案一致。",
+        )
 
         # 2. 選擇規範
         sel_dialog = VersionSelectionDialog(self.config_mgr, self)
         if sel_dialog.exec() != QDialog.Accepted or not sel_dialog.selected_config:
             return
-            
+
         selected_config = sel_dialog.selected_config
 
         # 3. 選擇測項
@@ -2921,70 +3082,87 @@ class MainApp(BorderedMainWindow):
             # 4. 切換 UI 並建立專案
             self.config = selected_config
             self.rebuild_ui_from_config()
-            
+
             ok, r = self.pm.create_ad_hoc_project(s, p)
             if ok:
-                self.project_ready() # 進入 UI 狀態更新
+                self.project_ready()  # 進入 UI 狀態更新
             else:
                 QMessageBox.warning(self, "建立失敗", r)
 
     def on_edit(self):
-        if not self.pm.current_project_path: return
-        
+        if not self.pm.current_project_path:
+            return
+
         p_type = self.pm.get_current_project_type()
-        
+
         if p_type == PROJECT_TYPE_ADHOC:
             # [New] Ad-Hoc 編輯模式：開啟測項選擇器
             self.edit_adhoc_items()
         else:
             # 一般模式：開啟專案資訊表單
-            c = ProjectFormController(self, self.config, self.pm.project_data.get("info", {}))
+            c = ProjectFormController(
+                self, self.config, self.pm.project_data.get("info", {})
+            )
             d = c.run()
             if d and self.pm.update_info(d):
                 QMessageBox.information(self, "OK", "已更新")
                 self.overview.refresh_data()
 
     def on_save_as_new_version(self):
-        if not self.pm.current_project_path: return
-        
+        if not self.pm.current_project_path:
+            return
+
         # 1. 選擇新規範
         sel_dialog = VersionSelectionDialog(self.config_mgr, self)
-        if sel_dialog.exec() != QDialog.Accepted or not sel_dialog.selected_config: return
-        
+        if sel_dialog.exec() != QDialog.Accepted or not sel_dialog.selected_config:
+            return
+
         new_config = sel_dialog.selected_config
         new_std_name = new_config.get("standard_name", "NewVer")
-        
+
         # 2. 計算遷移影響 (預覽)
         try:
             report = self.pm.calculate_migration_impact(new_config)
-            
+
             # 顯示預覽報告
             report_dialog = MigrationReportDialog(self, report)
             if report_dialog.exec() != QDialog.Accepted:
-                return # 使用者取消
-            
+                return  # 使用者取消
+
             # 3. 設定新專案名稱
-            current_name = self.pm.project_data.get("info", {}).get("project_name", "Project")
+            current_name = self.pm.project_data.get("info", {}).get(
+                "project_name", "Project"
+            )
             default_new_name = f"{current_name}_{new_std_name}"
-            
-            new_name, ok = QInputDialog.getText(self, "另存新版本專案", 
-                                          "請輸入新專案名稱 (將建立新資料夾)：", 
-                                          QLineEdit.Normal, default_new_name)
-            
+
+            new_name, ok = QInputDialog.getText(
+                self,
+                "另存新版本專案",
+                "請輸入新專案名稱 (將建立新資料夾)：",
+                QLineEdit.Normal,
+                default_new_name,
+            )
+
             if ok and new_name:
                 # 4. 執行 Fork 與遷移
-                success, msg = self.pm.fork_project_to_new_version(new_name, new_config, report)
-                
+                success, msg = self.pm.fork_project_to_new_version(
+                    new_name, new_config, report
+                )
+
                 if success:
-                    QMessageBox.information(self, "成功", f"已建立新專案：{new_name}\n\n系統將自動切換至新專案。")
-                    
+                    QMessageBox.information(
+                        self,
+                        "成功",
+                        f"已建立新專案：{new_name}\n\n系統將自動切換至新專案。",
+                    )
+
                     # 5. 自動切換到新專案
                     # msg 回傳的是新專案的路徑
-                    new_project_path = msg 
-                    
+                    new_project_path = msg
+
                     # 載入新專案
                     ok_load, err_load = self.pm.load_project(new_project_path)
-                    
+
                     if ok_load:
                         # 更新 UI 的 config 參考
                         self.config = new_config
@@ -2992,22 +3170,23 @@ class MainApp(BorderedMainWindow):
                         self.rebuild_ui_from_config()
                         self.project_ready()
                     else:
-                        QMessageBox.warning(self, "載入失敗", f"新專案建立成功但載入失敗：{err_load}")
+                        QMessageBox.warning(
+                            self, "載入失敗", f"新專案建立成功但載入失敗：{err_load}"
+                        )
                 else:
                     QMessageBox.critical(self, "建立失敗", msg)
-                    
+
         except ValueError as e:
             QMessageBox.critical(self, "錯誤", f"遷移計算失敗：\n{str(e)}")
-
 
     def edit_adhoc_items(self):
         """[New] 編輯 Ad-Hoc 測項：增刪邏輯"""
         # 1. 取得目前已選的項目
         current_whitelist = self.pm.project_data.get("info", {}).get("target_items", [])
-        
+
         # 2. 開啟選擇器，並預設勾選目前的項目
         d = QuickTestSelector(self, self.config)
-        
+
         # 這裡需要稍微修改 QuickTestSelector 讓它支援預設勾選
         # 我們直接操作它的 list_widget
         for i in range(d.list_widget.count()):
@@ -3015,33 +3194,39 @@ class MainApp(BorderedMainWindow):
             uid = item.data(Qt.UserRole)
             if uid in current_whitelist:
                 item.setCheckState(Qt.Checked)
-        
-        new_selected, _ = d.run() # 第二個返回值是 path，編輯模式下用不到
-        
-        if new_selected is not None: # 使用者按下 OK (可能是空 list，代表全刪)
+
+        new_selected, _ = d.run()  # 第二個返回值是 path，編輯模式下用不到
+
+        if new_selected is not None:  # 使用者按下 OK (可能是空 list，代表全刪)
             # 3. 計算被移除的項目
             removed_items = set(current_whitelist) - set(new_selected)
-            
+
             if removed_items:
-                ret = QMessageBox.question(self, "確認移除", 
-                                     f"您取消了 {len(removed_items)} 個測項。\n"
-                                     "這些測項的現有檢測結果將被永久刪除！\n\n"
-                                     "確定要繼續嗎？",
-                                     QMessageBox.Yes | QMessageBox.No)
-                if ret == QMessageBox.No: return
+                ret = QMessageBox.question(
+                    self,
+                    "確認移除",
+                    f"您取消了 {len(removed_items)} 個測項。\n"
+                    "這些測項的現有檢測結果將被永久刪除！\n\n"
+                    "確定要繼續嗎？",
+                    QMessageBox.Yes | QMessageBox.No,
+                )
+                if ret == QMessageBox.No:
+                    return
 
             # 4. 執行更新
             self.pm.update_adhoc_items(new_selected, removed_items)
-            
-            self.refresh_ui() # 重繪介面
-            self.rebuild_ui_from_config() # 因為按鈕顯示狀態變了，最好重建一下 Tab 結構比較保險
-            self.project_ready() # 重新初始化狀態
+
+            self.refresh_ui()  # 重繪介面
+            self.rebuild_ui_from_config()  # 因為按鈕顯示狀態變了，最好重建一下 Tab 結構比較保險
+            self.project_ready()  # 重新初始化狀態
             QMessageBox.information(self, "更新完成", "檢測項目已更新。")
 
     def on_switch_version(self):
-        if not self.pm.current_project_path: return
+        if not self.pm.current_project_path:
+            return
         sel_dialog = VersionSelectionDialog(self.config_mgr, self)
-        if sel_dialog.exec() != QDialog.Accepted or not sel_dialog.selected_config: return
+        if sel_dialog.exec() != QDialog.Accepted or not sel_dialog.selected_config:
+            return
         new_config = sel_dialog.selected_config
         try:
             report = self.pm.calculate_migration_impact(new_config)
@@ -3060,9 +3245,14 @@ class MainApp(BorderedMainWindow):
         if not snaps:
             QMessageBox.information(self, "無快照", "目前沒有備份快照。")
             return
-        item, ok = QInputDialog.getItem(self, "還原快照", "請選擇要還原的時間點：", snaps, 0, False)
+        item, ok = QInputDialog.getItem(
+            self, "還原快照", "請選擇要還原的時間點：", snaps, 0, False
+        )
         if ok and item:
-            if QMessageBox.question(self, "確認", "還原將覆蓋目前的進度，確定嗎？") == QMessageBox.Yes:
+            if (
+                QMessageBox.question(self, "確認", "還原將覆蓋目前的進度，確定嗎？")
+                == QMessageBox.Yes
+            ):
                 ok, msg = self.pm.restore_snapshot(item)
                 if ok:
                     std_name = self.pm.project_data.get("standard_name")
@@ -3073,7 +3263,9 @@ class MainApp(BorderedMainWindow):
                         self.project_ready()
                         QMessageBox.information(self, "成功", "專案已還原")
                     else:
-                        QMessageBox.warning(self, "警告", "還原成功，但找不到對應的規範 JSON。")
+                        QMessageBox.warning(
+                            self, "警告", "還原成功，但找不到對應的規範 JSON。"
+                        )
                 else:
                     QMessageBox.warning(self, "失敗", msg)
 
@@ -3081,22 +3273,26 @@ class MainApp(BorderedMainWindow):
         d = QFileDialog.getExistingDirectory(self, "選匯入目錄")
         if d:
             ok, msg = self.pm.merge_external_project(d)
-            if ok: QMessageBox.information(self, "OK", msg)
-            else: QMessageBox.warning(self, "Fail", msg)
+            if ok:
+                QMessageBox.information(self, "OK", msg)
+            else:
+                QMessageBox.warning(self, "Fail", msg)
 
     def project_ready(self):
         """專案載入成功後呼叫，設定標題與解鎖 UI"""
         self._set_ui_locked(False)
         self.refresh_ui()
         self.tabs.setCurrentIndex(0)
-        
+
         # [Modified] 根據專案類型設定 Title
         std_name = self.config.get("standard_name", "Unknown")
         proj_name = self.pm.project_data.get("info", {}).get("project_name", "未命名")
         p_type = self.pm.get_current_project_type()
-        
+
         if p_type == PROJECT_TYPE_ADHOC:
-            self.setWindowTitle(f"無人機資安檢測工具 [各別檢測模式] - {proj_name} [{std_name}]")
+            self.setWindowTitle(
+                f"無人機資安檢測工具 [各別檢測模式] - {proj_name} [{std_name}]"
+            )
         else:
             self.setWindowTitle(f"無人機資安檢測工具 - {proj_name} [{std_name}]")
 
@@ -3105,14 +3301,14 @@ class MainApp(BorderedMainWindow):
         self.overview.refresh_data()
         self.update_status()
         self.update_tab_visibility()
-        
+
         has_proj = self.pm.current_project_path is not None
         p_type = self.pm.get_current_project_type()
 
         # 基礎功能啟用狀態
         self.a_edit.setEnabled(has_proj)
         self.a_merge.setEnabled(has_proj)
-        
+
         # [New] 另存版本功能：只有完整專案可以使用，Ad-Hoc 不支援
         if has_proj and p_type == PROJECT_TYPE_FULL:
             self.a_save_as_ver.setEnabled(True)
@@ -3121,7 +3317,7 @@ class MainApp(BorderedMainWindow):
 
         # Ad-Hoc 特殊處理
         if has_proj and p_type == PROJECT_TYPE_ADHOC:
-            self.a_edit.setEnabled(True)    # Ad-Hoc 可編輯測項
+            self.a_edit.setEnabled(True)  # Ad-Hoc 可編輯測項
             self.a_edit.setText("編輯檢測項目 (Ad-Hoc)")
             self.a_merge.setEnabled(False)  # Ad-Hoc 不能匯入別人
         else:
@@ -3131,37 +3327,55 @@ class MainApp(BorderedMainWindow):
         for uid, (btn, layout, conf, row) in self.test_ui_elements.items():
             # [Fix] 這裡傳入 UID，解決 Ad-Hoc 顯示問題
             target_id = conf.get("uid", conf.get("id"))
-            
-            if not self.pm.is_item_visible(target_id): 
-                row.hide(); continue
+
+            if not self.pm.is_item_visible(target_id):
+                row.hide()
+                continue
             row.show()
-            
+
             status_map = self.pm.get_test_status_detail(conf)
             is_any = any(s != STATUS_NOT_TESTED for s in status_map.values())
-            if is_any: btn.setStyleSheet(f"QPushButton {{ background-color: {COLOR_BTN_ACTIVE}; color: white; font-weight: bold; }}")
-            else: btn.setStyleSheet("")
-            
-            while layout.count(): layout.takeAt(0).widget().deleteLater()
+            if is_any:
+                btn.setStyleSheet(
+                    f"QPushButton {{ background-color: {COLOR_BTN_ACTIVE}; color: white; font-weight: bold; }}"
+                )
+            else:
+                btn.setStyleSheet("")
+
+            while layout.count():
+                layout.takeAt(0).widget().deleteLater()
             for t, s in status_map.items():
-                lbl = QLabel(f"{t}: {s}" if len(status_map)>1 else s)
+                lbl = QLabel(f"{t}: {s}" if len(status_map) > 1 else s)
                 lbl.setAlignment(Qt.AlignCenter)
                 lbl.setFixedHeight(30)
-                c = COLOR_BG_DEFAULT; tc = COLOR_TEXT_GRAY
-                if s == "Pass": c = COLOR_BG_PASS; tc = COLOR_TEXT_PASS
-                elif s == "Fail": c = COLOR_BG_FAIL; tc = COLOR_TEXT_FAIL
-                elif s == "N/A": c = COLOR_BG_NA; tc = COLOR_TEXT_WHITE 
-                
-                lbl.setStyleSheet(f"background-color:{c}; color:{tc}; border-radius:4px; font-weight:bold;")
+                c = COLOR_BG_DEFAULT
+                tc = COLOR_TEXT_GRAY
+                if s == "Pass":
+                    c = COLOR_BG_PASS
+                    tc = COLOR_TEXT_PASS
+                elif s == "Fail":
+                    c = COLOR_BG_FAIL
+                    tc = COLOR_TEXT_FAIL
+                elif s == "N/A":
+                    c = COLOR_BG_NA
+                    tc = COLOR_TEXT_WHITE
+
+                lbl.setStyleSheet(
+                    f"background-color:{c}; color:{tc}; border-radius:4px; font-weight:bold;"
+                )
                 layout.addWidget(lbl)
 
     def update_tab_visibility(self):
-        if not self.pm.current_project_path: return
+        if not self.pm.current_project_path:
+            return
         for i, sec in enumerate(self.config.get("test_standards", [])):
             t_idx = i + 1
-            sec_id = sec['section_id']
+            sec_id = sec["section_id"]
             is_visible = self.pm.is_section_visible(sec_id)
             self.tabs.setTabEnabled(t_idx, is_visible)
-            self.tabs.setTabText(t_idx, sec['section_name'] + (" (N/A)" if not is_visible else ""))
+            self.tabs.setTabText(
+                t_idx, sec["section_name"] + (" (N/A)" if not is_visible else "")
+            )
 
     def open_test(self, item):
         self.win = QWidget()
@@ -3174,12 +3388,12 @@ class MainApp(BorderedMainWindow):
     @Slot(str, str, str)
     def on_photo_received(self, target_id, category, path):
         # 這裡原本有 QMessageBox，請刪除或註解掉
-        
+
         # [修改 2] 改用 StatusBar 顯示訊息，並設定 5000 毫秒 (5秒) 後自動消失
         filename = os.path.basename(path)
         msg = f"✅ 已收到照片：[{target_id} - {category}] {filename}"
-        self.statusBar().showMessage(msg, 5000) 
-        
+        self.statusBar().showMessage(msg, 5000)
+
         # 這裡可以保留 refresh_ui，確保介面有更新
         if target_id in TARGETS:
             self.refresh_ui()
@@ -3188,17 +3402,19 @@ class MainApp(BorderedMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    
+
     font_family = '"Microsoft JhengHei", "Segoe UI", sans-serif'
     app.setStyleSheet(f"QWidget {{ font-family: {font_family}; font-size: 10pt; }}")
 
     config_mgr = ConfigManager(config_dir=CONFIG_DIR)
-    
+
     if not config_mgr.list_available_configs():
-        QMessageBox.warning(None, "警告", "未偵測到設定檔，請將 json 放入 configs 資料夾")
+        QMessageBox.warning(
+            None, "警告", "未偵測到設定檔，請將 json 放入 configs 資料夾"
+        )
 
     # [Changed] 直接啟動 MainApp，不帶參數 (參數在內部處理)
     window = MainApp(config_mgr)
     window.show()
-    
+
     sys.exit(app.exec())
