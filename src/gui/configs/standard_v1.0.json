@@ -135,6 +135,36 @@
                     ]
                 }
             ]
+        },        
+        {
+            "section_id": "100",
+            "section_name": "test_section",
+            "items": [
+                {
+                    "id": "100.1",
+                    "name": "test_item",
+                    "uid": "test_uid",
+                    "criteria_version": "test_criteria_version",
+                    "targets": [
+                        "UAV"
+                    ],
+                    "logic": "AND",
+                    "narrative": {
+                        "purpose": "test_purpose",
+                        "method": "test_method",
+                        "criteria": "test_criteria"
+                    },
+                    "handler": {
+                        "class_name": "CommandTestTool"
+                    },
+                    "checklist": [
+                        {
+                            "id": "c1",
+                            "content": "test_checklist"
+                        }
+                    ]
+                }
+            ]
         },
         {
             "section_id": "7",

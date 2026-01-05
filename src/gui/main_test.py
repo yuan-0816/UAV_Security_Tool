@@ -529,6 +529,33 @@ class PhotoServer(QObject):
 # ------------------------------------------------------------------------------
 
 
+class BaseTestToolStrings:
+    """BaseTestToolView 字串常數"""
+
+    # 判定邏輯
+    LOGIC_AND = "須符合所有項目 (AND)"
+    LOGIC_OR = "符合任一項目即可 (OR)"
+    LOGIC_PREFIX = "判定邏輯: "
+
+    # 規範說明
+    CRITERIA_ALL = "符合下列【所有】項目者為通過"
+    CRITERIA_ANY = "符合下列【任一】項目者為通過"
+    CRITERIA_ELSE = "，否則為未通過：\n"
+    NO_METHOD_DESC = "無測試方法描述"
+
+    # HTML 標籤
+    HTML_METHOD_TITLE = "<b style='color:#333;'>【測試方法】</b>"
+    HTML_CRITERIA_TITLE = "<b style='color:#333;'>【判定標準】</b>"
+
+    # GroupBox 標題
+    GB_NARRATIVE = "規範說明"
+    GB_CHECKLIST = "細項檢查表 (Checklist)"
+    GB_NOTE = "判定原因 / 備註"
+
+    # Placeholder
+    HINT_NOTE = "合格時可留空，不合格時系統將自動帶入原因..."
+
+
 class BaseTestToolView(QWidget):
     """
     基礎測項 UI 視圖
@@ -581,41 +608,37 @@ class BaseTestToolView(QWidget):
 
     def _build_logic_hint(self, layout: QVBoxLayout):
         """建立判定邏輯提示"""
-        logic_desc = (
-            "須符合所有項目 (AND)" if self.logic == "AND" else "符合任一項目即可 (OR)"
-        )
-        lbl_logic = QLabel(f"判定邏輯: {logic_desc}")
+        S = BaseTestToolStrings
+        logic_desc = S.LOGIC_AND if self.logic == "AND" else S.LOGIC_OR
+        lbl_logic = QLabel(f"{S.LOGIC_PREFIX}{logic_desc}")
         lbl_logic.setStyleSheet(Styles.LOGIC_HINT)
         layout.addWidget(lbl_logic)
 
     def _build_narrative(self, layout: QVBoxLayout):
         """建立規範敘述區"""
+        S = BaseTestToolStrings
         narrative = self.config.get("narrative", {})
         checklist_data = self.config.get("checklist", [])
 
-        method_text = narrative.get("method", "無測試方法描述")
+        method_text = narrative.get("method", S.NO_METHOD_DESC)
         criteria_text = narrative.get("criteria", "")
 
         # 自動生成判定標準
         if not criteria_text and checklist_data:
-            header = (
-                "符合下列【任一】項目者為通過"
-                if self.logic == "OR"
-                else "符合下列【所有】項目者為通過"
-            )
+            header = S.CRITERIA_ANY if self.logic == "OR" else S.CRITERIA_ALL
             lines = [
                 f"({i+1}) {item.get('content', '')}"
                 for i, item in enumerate(checklist_data)
             ]
-            criteria_text = f"{header}，否則為未通過：\n" + "\n".join(lines)
+            criteria_text = f"{header}{S.CRITERIA_ELSE}" + "\n".join(lines)
 
         method_html = method_text.replace("\n", "<br>")
         criteria_html = criteria_text.replace("\n", "<br>")
 
         display_html = (
-            f"<b style='color:#333;'>【測試方法】</b>"
+            f"{S.HTML_METHOD_TITLE}"
             f"<div style='margin-left:10px; color:#555;'>{method_html}</div>"
-            f"<b style='color:#333;'>【判定標準】</b>"
+            f"{S.HTML_CRITERIA_TITLE}"
             f"<div style='margin-left:10px; color:#D32F2F;'>{criteria_html}</div>"
         )
 
@@ -627,7 +650,7 @@ class BaseTestToolView(QWidget):
         self.desc_edit.setLineWrapMode(QTextEdit.WidgetWidth)
         self.desc_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
-        g1 = QGroupBox("規範說明")
+        g1 = QGroupBox(S.GB_NARRATIVE)
         v1 = QVBoxLayout()
         v1.addWidget(self.desc_edit)
         g1.setLayout(v1)
@@ -635,11 +658,12 @@ class BaseTestToolView(QWidget):
 
     def _build_checklist(self, layout: QVBoxLayout):
         """建立 Checkbox 列表"""
+        S = BaseTestToolStrings
         checklist_data = self.config.get("checklist", [])
         if not checklist_data:
             return
 
-        gb = QGroupBox("細項檢查表 (Checklist)")
+        gb = QGroupBox(S.GB_CHECKLIST)
         gb_layout = QVBoxLayout()
         gb_layout.setSpacing(8)
 
@@ -685,10 +709,11 @@ class BaseTestToolView(QWidget):
 
     def _build_note_section(self, layout: QVBoxLayout):
         """建立備註區"""
-        g3 = QGroupBox("判定原因 / 備註")
+        S = BaseTestToolStrings
+        g3 = QGroupBox(S.GB_NOTE)
         v3 = QVBoxLayout()
         self.user_note = QTextEdit()
-        self.user_note.setPlaceholderText("合格時可留空，不合格時系統將自動帶入原因...")
+        self.user_note.setPlaceholderText(S.HINT_NOTE)
         self.user_note.setFixedHeight(80)
         self.user_note.textChanged.connect(
             lambda: self.note_changed.emit(self.user_note.toPlainText())
@@ -724,6 +749,30 @@ class BaseTestToolView(QWidget):
 # ------------------------------------------------------------------------------
 # View Layer: CommandTestToolView (指令執行通用 UI)
 # ------------------------------------------------------------------------------
+
+
+class CommandTestToolStrings:
+    """CommandTestToolView 字串常數"""
+
+    # GroupBox 標題
+    GB_TOOL = "🔧 指令執行設定"
+    GB_RESULT = "執行結果"
+
+    # Labels
+    LBL_COMMAND = "將執行的指令 (可自訂)："
+
+    # 按鈕
+    BTN_RUN = "▶️ 執行"
+    BTN_RUNNING = "⏳ 執行中..."
+    BTN_SCREENSHOT = "📷 擷取截圖加入佐證"
+    BTN_SAVE_LOG = "💾 儲存 Log 紀錄"
+
+    # Placeholder
+    HINT_RESULT = "執行結果將顯示於此..."
+
+    # 錯誤訊息
+    ERR_EMPTY_CMD = "請輸入指令"
+    TITLE_ERROR = "錯誤"
 
 
 class CommandTestToolView(BaseTestToolView):
@@ -764,7 +813,8 @@ class CommandTestToolView(BaseTestToolView):
             v.addWidget(input_section)
 
         # 指令顯示/編輯區
-        v.addWidget(QLabel("將執行的指令 (可自訂)："))
+        S = CommandTestToolStrings
+        v.addWidget(QLabel(S.LBL_COMMAND))
         self.command_edit = QLineEdit()
         self.command_edit.setStyleSheet(Styles.INPUT_COMMAND)
         v.addWidget(self.command_edit)
@@ -782,7 +832,7 @@ class CommandTestToolView(BaseTestToolView):
         container_layout.addWidget(g_tool)
 
         # 2. 結果顯示區 - 延伸到底部
-        g_result = QGroupBox("執行結果")
+        g_result = QGroupBox(S.GB_RESULT)
         v_result = QVBoxLayout()
 
         self.result_text = QTextEdit()
@@ -794,12 +844,12 @@ class CommandTestToolView(BaseTestToolView):
         # 操作按鈕列
         h_actions = QHBoxLayout()
 
-        self.btn_screenshot = QPushButton("📷 擷取截圖加入佐證")
+        self.btn_screenshot = QPushButton(S.BTN_SCREENSHOT)
         self.btn_screenshot.setStyleSheet(Styles.BTN_PADDING)
         self.btn_screenshot.clicked.connect(lambda: self.screenshot_requested.emit())
         h_actions.addWidget(self.btn_screenshot)
 
-        self.btn_save_log = QPushButton("💾 儲存 Log 紀錄")
+        self.btn_save_log = QPushButton(S.BTN_SAVE_LOG)
         self.btn_save_log.setStyleSheet(Styles.BTN_PADDING)
         self.btn_save_log.clicked.connect(lambda: self.save_log_requested.emit())
         h_actions.addWidget(self.btn_save_log)
@@ -826,19 +876,19 @@ class CommandTestToolView(BaseTestToolView):
 
     def _get_tool_title(self) -> str:
         """子類別覆寫：工具標題"""
-        return "🔧 指令執行設定"
+        return CommandTestToolStrings.GB_TOOL
 
     def _get_run_button_text(self) -> str:
         """子類別覆寫：執行按鈕文字"""
-        return "▶️ 執行"
+        return CommandTestToolStrings.BTN_RUN
 
     def _get_running_button_text(self) -> str:
         """子類別覆寫：執行中按鈕文字"""
-        return "⏳ 執行中..."
+        return CommandTestToolStrings.BTN_RUNNING
 
     def _get_result_placeholder(self) -> str:
         """子類別覆寫：結果區預設文字"""
-        return "執行結果將顯示於此..."
+        return CommandTestToolStrings.HINT_RESULT
 
     def _update_command_preview(self):
         """子類別覆寫：更新指令預覽"""
@@ -846,9 +896,10 @@ class CommandTestToolView(BaseTestToolView):
 
     def _validate_before_run(self) -> bool:
         """子類別覆寫：執行前驗證，回傳 False 則不執行"""
+        S = CommandTestToolStrings
         cmd = self.command_edit.text().strip()
         if not cmd:
-            QMessageBox.warning(self, "錯誤", "請輸入指令")
+            QMessageBox.warning(self, S.TITLE_ERROR, S.ERR_EMPTY_CMD)
             return False
         return True
 
@@ -896,6 +947,39 @@ class CommandTestToolView(BaseTestToolView):
 # ------------------------------------------------------------------------------
 
 
+class NmapTestToolStrings:
+    """NmapTestToolView 字串常數"""
+
+    # Labels
+    LBL_TARGET_IP = "目標 IP："
+    LBL_SCAN_TYPE = "掃描類型："
+    LBL_PORT_RANGE = "Port 範圍："
+
+    # Placeholder
+    HINT_IP = "例如：192.168.1.1"
+    HINT_PORT = "例如：1-1024 或 0-65535"
+    DEFAULT_PORT = "0-65535"
+    HINT_RESULT = "掃描結果將顯示於此..."
+
+    # 掃描類型選項
+    SCAN_TCP_CONNECT = "-sT (TCP Connect - 不需 root)"
+    SCAN_TCP_SYN = "-sS (TCP SYN - 需 root)"
+    SCAN_UDP = "-sU (UDP - 需 root)"
+
+    # 工具標題
+    GB_TOOL = "🔍 網路埠掃描設定"
+    BTN_RUN = "▶️ 開始掃描"
+    BTN_RUNNING = "⏳ 掃描中..."
+
+    # 錯誤訊息
+    ERR_NO_IP = "請先輸入目標 IP"
+    TITLE_ERROR = "錯誤"
+
+    # 指令模板
+    CMD_TEMPLATE = "nmap {scan_type} -p {port_range} {ip}"
+    CMD_PLACEHOLDER_IP = "<目標IP>"
+
+
 class NmapTestToolView(CommandTestToolView):
     """
     Nmap 網路埠掃描測項 UI
@@ -904,6 +988,7 @@ class NmapTestToolView(CommandTestToolView):
 
     def _build_input_section(self) -> QWidget:
         """覆寫：建立 Nmap 專屬輸入區"""
+        S = NmapTestToolStrings
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -911,34 +996,28 @@ class NmapTestToolView(CommandTestToolView):
 
         # 目標 IP 輸入
         h_ip = QHBoxLayout()
-        h_ip.addWidget(QLabel("目標 IP："))
+        h_ip.addWidget(QLabel(S.LBL_TARGET_IP))
         self.ip_input = QLineEdit()
-        self.ip_input.setPlaceholderText("例如：192.168.1.1")
+        self.ip_input.setPlaceholderText(S.HINT_IP)
         self.ip_input.textChanged.connect(self._update_command_preview)
         h_ip.addWidget(self.ip_input)
         layout.addLayout(h_ip)
 
         # 掃描類型選擇
         h_type = QHBoxLayout()
-        h_type.addWidget(QLabel("掃描類型："))
+        h_type.addWidget(QLabel(S.LBL_SCAN_TYPE))
         self.combo_scan_type = QComboBox()
-        self.combo_scan_type.addItems(
-            [
-                "-sT (TCP Connect - 不需 root)",
-                "-sS (TCP SYN - 需 root)",
-                "-sU (UDP - 需 root)",
-            ]
-        )
+        self.combo_scan_type.addItems([S.SCAN_TCP_CONNECT, S.SCAN_TCP_SYN, S.SCAN_UDP])
         self.combo_scan_type.currentTextChanged.connect(self._update_command_preview)
         h_type.addWidget(self.combo_scan_type)
         layout.addLayout(h_type)
 
         # Port 範圍
         h_port = QHBoxLayout()
-        h_port.addWidget(QLabel("Port 範圍："))
+        h_port.addWidget(QLabel(S.LBL_PORT_RANGE))
         self.port_input = QLineEdit()
-        self.port_input.setPlaceholderText("例如：1-1024 或 0-65535")
-        self.port_input.setText("0-65535")
+        self.port_input.setPlaceholderText(S.HINT_PORT)
+        self.port_input.setText(S.DEFAULT_PORT)
         self.port_input.textChanged.connect(self._update_command_preview)
         h_port.addWidget(self.port_input)
         layout.addLayout(h_port)
@@ -946,19 +1025,20 @@ class NmapTestToolView(CommandTestToolView):
         return widget
 
     def _get_tool_title(self) -> str:
-        return "🔍 網路埠掃描設定"
+        return NmapTestToolStrings.GB_TOOL
 
     def _get_run_button_text(self) -> str:
-        return "▶️ 開始掃描"
+        return NmapTestToolStrings.BTN_RUN
 
     def _get_running_button_text(self) -> str:
-        return "⏳ 掃描中..."
+        return NmapTestToolStrings.BTN_RUNNING
 
     def _get_result_placeholder(self) -> str:
-        return "掃描結果將顯示於此..."
+        return NmapTestToolStrings.HINT_RESULT
 
     def _update_command_preview(self):
         """覆寫：更新 Nmap 指令預覽"""
+        S = NmapTestToolStrings
         ip = self.ip_input.text().strip()
         scan_type = self.combo_scan_type.currentText().split()[0]
         port_range = self.port_input.text().strip()
@@ -966,15 +1046,16 @@ class NmapTestToolView(CommandTestToolView):
         if ip:
             cmd = f"nmap {scan_type} -p {port_range} {ip}"
         else:
-            cmd = f"nmap {scan_type} -p {port_range} <目標IP>"
+            cmd = f"nmap {scan_type} -p {port_range} {S.CMD_PLACEHOLDER_IP}"
 
         self.command_edit.setText(cmd)
 
     def _validate_before_run(self) -> bool:
         """覆寫：驗證 IP 是否已輸入"""
+        S = NmapTestToolStrings
         cmd = self.command_edit.text().strip()
-        if "<目標IP>" in cmd or not cmd:
-            QMessageBox.warning(self, "錯誤", "請先輸入目標 IP")
+        if S.CMD_PLACEHOLDER_IP in cmd or not cmd:
+            QMessageBox.warning(self, S.TITLE_ERROR, S.ERR_NO_IP)
             return False
         return True
 

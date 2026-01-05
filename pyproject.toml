@@ -24,7 +24,7 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 # 告訴 setuptools 原始碼在哪裡
-where = ["src"]
+where = ["src", "src/gui"]
 
 # 用 pip
 # python -m pip install -e .
@@ -34,3 +34,10 @@ where = ["src"]
 # python -m src.gui.app
 # 或
 # uv run python -m src.gui.app
+
+[tool.pyright]
+extraPaths = ["src/gui"]
+
+[tool.pylance]
+extraPaths = ["src/gui"]
+
