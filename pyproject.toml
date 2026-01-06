@@ -19,6 +19,8 @@ dependencies = [
     "python-dotenv",
     "numpy",
     "PySide6",
+    "pillow",
+    "qrcode",
     "cve-bin-tool",
 ]
 
