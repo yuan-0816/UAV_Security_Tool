@@ -19,8 +19,9 @@ from .title_bar import CustomTitleBar
 class BorderedMainWindow(QMainWindow):
     """通用無邊框視窗"""
 
-    SHADOW_WIDTH = 10
-    BORDER_WIDTH = 6
+
+    SHADOW_WIDTH = 3
+    BORDER_WIDTH = 5
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -52,7 +53,7 @@ class BorderedMainWindow(QMainWindow):
 
         # 陰影特效
         self.shadow = QGraphicsDropShadowEffect(self)
-        self.shadow.setBlurRadius(20)
+        self.shadow.setBlurRadius(3)
         self.shadow.setOffset(0, 0)
         self.frame.setGraphicsEffect(self.shadow)
 
@@ -112,6 +113,26 @@ class BorderedMainWindow(QMainWindow):
     def changeEvent(self, event):
         if event.type() == QEvent.PaletteChange:
             self.apply_system_theme()
+        elif event.type() == QEvent.WindowStateChange:
+            # 監聯系統視窗管理器對視窗狀態的變更（例如拖到螢幕頂部自動最大化）
+            is_now_maximized = bool(self.windowState() & Qt.WindowMaximized)
+            
+            if is_now_maximized != self._is_max:
+                self._is_max = is_now_maximized
+                
+                if is_now_maximized:
+                    # 視窗被最大化，移除邊距
+                    self._container_layout.setContentsMargins(0, 0, 0, 0)
+                    self.frame.setStyleSheet(Styles.FRAME_MAXIMIZED.format(**THEME))
+                else:
+                    # 視窗被還原，恢復邊距
+                    self._container_layout.setContentsMargins(
+                        self.SHADOW_WIDTH,
+                        self.SHADOW_WIDTH,
+                        self.SHADOW_WIDTH,
+                        self.SHADOW_WIDTH,
+                    )
+                    self.frame.setStyleSheet(Styles.FRAME_NORMAL.format(**THEME))
         super().changeEvent(event)
 
     # Resize 處理
