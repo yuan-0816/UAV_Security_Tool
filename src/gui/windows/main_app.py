@@ -559,11 +559,16 @@ class MainApp(BorderedMainWindow):
             )
 
     def open_test(self, item):
-        self.win = QWidget()
+        
+        # self.win = QWidget()
+        self.win = BorderedMainWindow()
         self.win.setWindowTitle(f"檢測 {item['id']} {item['name']}")
+        test_page = UniversalTestPage(item, self.pm)
+        self.win.setCentralWidget(test_page)
+        # self.win.setCentralWidget(UniversalTestPage(item, self.pm))
         self.win.resize(1200, 800)
-        l = QVBoxLayout(self.win)
-        l.addWidget(UniversalTestPage(item, self.pm))
+        # l = QVBoxLayout(self.win)
+        # l.addWidget(UniversalTestPage(item, self.pm))
         self.win.show()
 
     @Slot(str, str, str)
