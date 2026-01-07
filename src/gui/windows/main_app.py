@@ -59,6 +59,7 @@ class MainApp(BorderedMainWindow):
         self.config_mgr = config_mgr
         self.pm = ProjectManager()
         self.test_ui_elements = {}
+        self.test_windows = {}  # 追蹤已開啟的檢測視窗 {uid: window}
         self.current_font_size = 10
 
         self.pm.photo_received.connect(self.on_photo_received)
@@ -559,17 +560,32 @@ class MainApp(BorderedMainWindow):
             )
 
     def open_test(self, item):
+        uid = item.get("uid", item.get("id"))
         
-        # self.win = QWidget()
-        self.win = BorderedMainWindow()
-        self.win.setWindowTitle(f"檢測 {item['id']} {item['name']}")
+        # 檢查是否已有開啟的視窗
+        if uid in self.test_windows:
+            existing_win = self.test_windows[uid]
+            # 確保視窗可見並激活
+            existing_win.showNormal()  # 如果最小化則還原
+            existing_win.raise_()      # 提到最前面
+            existing_win.activateWindow()  # 激活視窗
+            return
+        
+        # 建立新視窗（不設定 parent，讓視窗獨立於 MainApp 之上）
+        win = BorderedMainWindow()
+        win.setAttribute(Qt.WA_DeleteOnClose)
+        win.setWindowTitle(f"檢測 {item['id']} {item['name']}")
         test_page = UniversalTestPage(item, self.pm)
-        self.win.setCentralWidget(test_page)
-        # self.win.setCentralWidget(UniversalTestPage(item, self.pm))
-        self.win.resize(1200, 800)
-        # l = QVBoxLayout(self.win)
-        # l.addWidget(UniversalTestPage(item, self.pm))
-        self.win.show()
+        win.setCentralWidget(test_page)
+        win.resize(1200, 800)
+        
+        # 追蹤視窗
+        self.test_windows[uid] = win
+        
+        # 當視窗關閉時從追蹤字典中移除
+        win.destroyed.connect(lambda: self.test_windows.pop(uid, None))
+        
+        win.show()
 
     @Slot(str, str, str)
     def on_photo_received(self, target_id, category, path):
@@ -579,3 +595,13 @@ class MainApp(BorderedMainWindow):
 
         if target_id in TARGETS:
             self.refresh_ui()
+
+    def closeEvent(self, event):
+        """當 MainApp 關閉時，關閉所有已開啟的檢測視窗"""
+        # 複製一份 keys，避免在迭代時修改字典
+        for uid in list(self.test_windows.keys()):
+            win = self.test_windows.get(uid)
+            if win:
+                win.close()
+        self.test_windows.clear()
+        super().closeEvent(event)
