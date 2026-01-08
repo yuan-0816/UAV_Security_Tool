@@ -84,7 +84,8 @@ class MainApp(BorderedMainWindow):
         self._init_zoom()
 
         if self.config:
-            self.rebuild_ui_from_config()
+            # 初始化時只建立總覽頁面，不建立檢測分類 tabs
+            self._init_overview_only()
             self._set_ui_locked(True)
             self.setWindowTitle("無人機資安檢測工具 (請從選單建立或開啟專案)")
         else:
@@ -109,7 +110,20 @@ class MainApp(BorderedMainWindow):
         if not locked and self.tabs.count() > 0:
             self.tabs.setCurrentIndex(0)
 
+    def _init_overview_only(self):
+        """初始化時只建立總覽頁面（未開啟專案前）"""
+        if not self.config:
+            return
+
+        self.tabs.clear()
+        self.test_ui_elements = {}
+        self.pm.set_standard_config(self.config)
+
+        self.overview = OverviewPage(self.pm, self.config)
+        self.tabs.addTab(self.overview, "總覽 Overview")
+
     def rebuild_ui_from_config(self):
+        """重建完整 UI（包含所有檢測分類 tabs）- 開啟專案後呼叫"""
         if not self.config:
             return
 
@@ -172,6 +186,7 @@ class MainApp(BorderedMainWindow):
             self.tabs.addTab(p, sec["section_id"])
 
         self.update_font()
+
 
     def _init_menu(self):
         mb = self.menuBar()
@@ -410,26 +425,26 @@ class MainApp(BorderedMainWindow):
             self.project_ready()
             QMessageBox.information(self, "更新完成", "檢測項目已更新。")
 
-    def on_switch_version(self):
-        if not self.pm.current_project_path:
-            return
-        sel_dialog = VersionSelectionDialog(self.config_mgr, self)
-        if sel_dialog.exec() != QDialog.Accepted or not sel_dialog.selected_config:
-            return
-        new_config = sel_dialog.selected_config
-        try:
-            report = self.pm.calculate_migration_impact(new_config)
-            report_dialog = MigrationReportDialog(self, report)
-            if report_dialog.exec() == QDialog.Accepted:
-                self.pm.apply_version_switch(new_config, report)
-                self.config = new_config
-                self.rebuild_ui_from_config()
-                self.project_ready()
-                QMessageBox.information(self, "成功", "版本切換完成，舊設定已備份。")
-        except ValueError as e:
-            QMessageBox.critical(self, "遷移失敗", f"無法切換至此版本：\n{str(e)}")
+    # def on_switch_version(self):
+    #     if not self.pm.current_project_path:
+    #         return
+    #     sel_dialog = VersionSelectionDialog(self.config_mgr, self)
+    #     if sel_dialog.exec() != QDialog.Accepted or not sel_dialog.selected_config:
+    #         return
+    #     new_config = sel_dialog.selected_config
+    #     try:
+    #         report = self.pm.calculate_migration_impact(new_config)
+    #         report_dialog = MigrationReportDialog(self, report)
+    #         if report_dialog.exec() == QDialog.Accepted:
+    #             self.pm.apply_version_switch(new_config, report)
+    #             self.config = new_config
+    #             self.rebuild_ui_from_config()
+    #             self.project_ready()
+    #             QMessageBox.information(self, "成功", "版本切換完成，舊設定已備份。")
+    #     except ValueError as e:
+    #         QMessageBox.critical(self, "遷移失敗", f"無法切換至此版本：\n{str(e)}")
 
-    def on_restore_snapshot(self):
+    # def on_restore_snapshot(self):
         snaps = self.pm.list_snapshots()
         if not snaps:
             QMessageBox.information(self, "無快照", "目前沒有備份快照。")

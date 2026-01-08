@@ -53,40 +53,40 @@ class ProjectManager(QObject):
     def set_standard_config(self, config):
         self.std_config = config
 
-    def save_snapshot(self, note="backup"):
-        if not self.current_project_path:
-            return False
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        std_name = self.project_data.get("standard_name", "unknown").replace(" ", "_")
-        filename = f"snapshot_{std_name}_{timestamp}_{note}.json"
-        src = os.path.join(self.current_project_path, self.settings_filename)
-        dst = os.path.join(self.current_project_path, filename)
-        try:
-            shutil.copy2(src, dst)
-            return True, filename
-        except Exception as e:
-            return False, str(e)
+    # def save_snapshot(self, note="backup"):
+    #     if not self.current_project_path:
+    #         return False
+    #     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    #     std_name = self.project_data.get("standard_name", "unknown").replace(" ", "_")
+    #     filename = f"snapshot_{std_name}_{timestamp}_{note}.json"
+    #     src = os.path.join(self.current_project_path, self.settings_filename)
+    #     dst = os.path.join(self.current_project_path, filename)
+    #     try:
+    #         shutil.copy2(src, dst)
+    #         return True, filename
+    #     except Exception as e:
+    #         return False, str(e)
 
-    def list_snapshots(self) -> List[str]:
-        if not self.current_project_path:
-            return []
-        snaps = []
-        for f in os.listdir(self.current_project_path):
-            if f.startswith("snapshot_") and f.endswith(".json"):
-                snaps.append(f)
-        snaps.sort(reverse=True)
-        return snaps
+    # def list_snapshots(self) -> List[str]:
+    #     if not self.current_project_path:
+    #         return []
+    #     snaps = []
+    #     for f in os.listdir(self.current_project_path):
+    #         if f.startswith("snapshot_") and f.endswith(".json"):
+    #             snaps.append(f)
+    #     snaps.sort(reverse=True)
+    #     return snaps
 
-    def restore_snapshot(self, snapshot_filename):
-        if not self.current_project_path:
-            return False
-        src = os.path.join(self.current_project_path, snapshot_filename)
-        dst = os.path.join(self.current_project_path, self.settings_filename)
-        try:
-            shutil.copy2(src, dst)
-            return self.load_project(self.current_project_path)
-        except Exception as e:
-            return False, str(e)
+    # def restore_snapshot(self, snapshot_filename):
+    #     if not self.current_project_path:
+    #         return False
+    #     src = os.path.join(self.current_project_path, snapshot_filename)
+    #     dst = os.path.join(self.current_project_path, self.settings_filename)
+    #     try:
+    #         shutil.copy2(src, dst)
+    #         return self.load_project(self.current_project_path)
+    #     except Exception as e:
+    #         return False, str(e)
 
     def calculate_migration_impact(self, new_config) -> List[Dict]:
         report = []
