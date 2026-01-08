@@ -444,7 +444,7 @@ class CommandTestTool(BaseTestTool):
     def _take_screenshot(self):
         """擷取結果截圖"""
         if not self.project_path:
-            QMessageBox.warning(None, "錯誤", "專案路徑未設定，無法儲存截圖")
+            QMessageBox.warning(self.view, "錯誤", "專案路徑未設定，無法儲存截圖")
             return
 
         # 建立 report 資料夾
@@ -505,17 +505,17 @@ class CommandTestTool(BaseTestTool):
             self.view.attachment_list.add_attachment(filepath, suggested_title, "image")
 
         QMessageBox.information(
-            None, "截圖成功", f"完整截圖已儲存並加入佐證資料：\n{filename}"
+            self.view, "截圖成功", f"完整截圖已儲存並加入佐證資料：\n{filename}"
         )
 
     def _save_log(self):
         """儲存 log 紀錄並加入佐證資料"""
         if not self.project_path:
-            QMessageBox.warning(None, "錯誤", "專案路徑未設定，無法儲存 log")
+            QMessageBox.warning(self.view, "錯誤", "專案路徑未設定，無法儲存 log")
             return
 
         if not self.last_result:
-            QMessageBox.warning(None, "錯誤", "沒有執行結果可儲存")
+            QMessageBox.warning(self.view, "錯誤", "沒有執行結果可儲存")
             return
 
         # 建立 report 資料夾
@@ -545,7 +545,7 @@ class CommandTestTool(BaseTestTool):
             )
 
         QMessageBox.information(
-            None, "儲存成功", f"Log 已儲存並加入佐證資料：\n{filename}"
+            self.view, "儲存成功", f"Log 已儲存並加入佐證資料：\n{filename}"
         )
 
     def get_result(self) -> Dict:

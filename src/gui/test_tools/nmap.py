@@ -13,7 +13,9 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QComboBox,
+    QCheckBox,
     QMessageBox,
+    QSizePolicy,
 )
 
 from .command import CommandTestToolView, CommandTestTool
@@ -42,6 +44,19 @@ class NmapTestToolStrings:
     SCAN_TCP_CONNECT = "-sT (TCP Connect - 不需 root)"
     SCAN_TCP_SYN = "-sS (TCP SYN - 需 root)"
     SCAN_UDP = "-sU (UDP - 需 root)"
+
+    # 掃描速度選項
+    LBL_TIMING = "掃描速度："
+    TIMING_T0 = "-T0 (Paranoid - 極慢)"
+    TIMING_T1 = "-T1 (Sneaky - 很慢)"
+    TIMING_T2 = "-T2 (Polite - 較慢)"
+    TIMING_T3 = "-T3 (Normal - 正常)"
+    TIMING_T4 = "-T4 (Aggressive - 快速)"
+    TIMING_T5 = "-T5 (Insane - 極快)"
+    DEFAULT_TIMING_INDEX = 4  # 預設 -T4
+
+    # 詳細輸出選項
+    LBL_VERBOSE = "詳細輸出 (-v)"
 
     # 工具標題
     GB_TOOL = "🔍 網路埠掃描設定"
@@ -90,6 +105,7 @@ class NmapTestToolView(CommandTestToolView):
         h_type.addWidget(QLabel(S.LBL_SCAN_TYPE))
         self.combo_scan_type = QComboBox()
         self.combo_scan_type.addItems([S.SCAN_TCP_CONNECT, S.SCAN_TCP_SYN, S.SCAN_UDP])
+        self.combo_scan_type.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.combo_scan_type.currentTextChanged.connect(self._update_command_preview)
         h_type.addWidget(self.combo_scan_type)
         layout.addLayout(h_type)
@@ -103,6 +119,26 @@ class NmapTestToolView(CommandTestToolView):
         self.port_input.textChanged.connect(self._update_command_preview)
         h_port.addWidget(self.port_input)
         layout.addLayout(h_port)
+
+        # 掃描速度選擇
+        h_timing = QHBoxLayout()
+        h_timing.addWidget(QLabel(S.LBL_TIMING))
+        self.combo_timing = QComboBox()
+        self.combo_timing.addItems([
+            S.TIMING_T0, S.TIMING_T1, S.TIMING_T2,
+            S.TIMING_T3, S.TIMING_T4, S.TIMING_T5
+        ])
+        self.combo_timing.setCurrentIndex(S.DEFAULT_TIMING_INDEX)  # 預設 -T4
+        self.combo_timing.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.combo_timing.currentTextChanged.connect(self._update_command_preview)
+        h_timing.addWidget(self.combo_timing)
+        layout.addLayout(h_timing)
+
+        # 詳細輸出選項
+        self.chk_verbose = QCheckBox(S.LBL_VERBOSE)
+        self.chk_verbose.setChecked(True)  # 預設啟用
+        self.chk_verbose.stateChanged.connect(self._update_command_preview)
+        layout.addWidget(self.chk_verbose)
 
         return widget
 
@@ -122,15 +158,23 @@ class NmapTestToolView(CommandTestToolView):
         """覆寫：更新 Nmap 指令預覽"""
         S = NmapTestToolStrings
         ip = self.ip_input.text().strip()
-        scan_type = self.combo_scan_type.currentText().split()[0]
+        scan_type = self.combo_scan_type.currentText().split()[0]  # -sT/-sS/-sU
         port_range = self.port_input.text().strip()
+        timing = self.combo_timing.currentText().split()[0]  # -T0~-T5
+        verbose = "-v" if self.chk_verbose.isChecked() else ""
 
+        # 組合指令
+        parts = ["nmap", scan_type, timing]
+        if verbose:
+            parts.append(verbose)
+        parts.extend(["-p", port_range])
+        
         if ip:
-            cmd = f"nmap {scan_type} -p {port_range} {ip}"
+            parts.append(ip)
         else:
-            cmd = f"nmap {scan_type} -p {port_range} {S.CMD_PLACEHOLDER_IP}"
+            parts.append(S.CMD_PLACEHOLDER_IP)
 
-        self.command_edit.setText(cmd)
+        self.command_edit.setText(" ".join(parts))
 
     def _validate_before_run(self) -> bool:
         """覆寫：驗證 IP 是否已輸入"""
@@ -146,6 +190,8 @@ class NmapTestToolView(CommandTestToolView):
         self.ip_input.setEnabled(enabled)
         self.combo_scan_type.setEnabled(enabled)
         self.port_input.setEnabled(enabled)
+        self.combo_timing.setEnabled(enabled)
+        self.chk_verbose.setEnabled(enabled)
 
     # ----- Nmap 專用方法 (保持相容性) -----
 
